@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSS Follow-up & Closure Agent — Reporting Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #f3f4f6; --card: #ffffff; --border: #e5e7eb;
+            --blue: #3b82f6; --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+            --purple: #8b5cf6; --teal: #14b8a6; --gray600: #4b5563; --gray400: #9ca3af;
+            --shadow: 0 1px 3px rgba(0,0,0,.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #1f2937; }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            color: #fff; padding: 18px 32px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header .subtitle { font-size: 12px; opacity: .65; margin-top: 2px; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .header-right select, .header-right input {
+            background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+            color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px;
+        }
+        .header-right option { color: #333; }
+        .refresh-btn { background: rgba(255,255,255,.15); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+        .refresh-btn:hover { background: rgba(255,255,255,.25); }
+
+        /* ── Layout ── */
+        .container { max-width: 1440px; margin: 0 auto; padding: 24px 28px; }
+
+        /* ── Section Titles ── */
+        .section-title { font-size: 15px; font-weight: 700; color: var(--gray600); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; width: 4px; height: 18px; border-radius: 2px; }
+        .st-blue::before { background: var(--blue); }
+        .st-green::before { background: var(--green); }
+        .st-purple::before { background: var(--purple); }
+        .st-amber::before { background: var(--amber); }
+        .st-teal::before { background: var(--teal); }
+        .st-red::before { background: var(--red); }
+
+        /* ── KPI Row ── */
+        .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 28px; }
+        .kpi {
+            background: var(--card); border-radius: 10px; padding: 18px 16px; box-shadow: var(--shadow);
+            text-align: center; position: relative; overflow: hidden;
+        }
+        .kpi .bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+        .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--gray400); }
+        .kpi .value { font-size: 30px; font-weight: 800; margin: 6px 0 2px; }
+        .kpi .delta { font-size: 11px; }
+        .delta-up { color: var(--green); }
+        .delta-down { color: var(--red); }
+        .delta-flat { color: var(--gray400); }
+
+        /* ── Cards Grid ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 28px; }
+        .card { background: var(--card); border-radius: 10px; padding: 20px; box-shadow: var(--shadow); }
+        .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--gray600); }
+
+        /* ── Funnel ── */
+        .funnel { display: flex; flex-direction: column; gap: 6px; }
+        .funnel-step { display: flex; align-items: center; gap: 12px; }
+        .funnel-bar-wrap { flex: 1; height: 28px; background: #f1f5f9; border-radius: 6px; overflow: hidden; position: relative; }
+        .funnel-bar { height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 11px; font-weight: 700; color: #fff; min-width: 40px; transition: width .6s ease; }
+        .funnel-label { width: 160px; font-size: 12px; font-weight: 600; color: var(--gray600); flex-shrink: 0; }
+        .funnel-count { width: 60px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+
+        /* ── Stage Pipeline ── */
+        .pipeline { display: flex; gap: 0; margin-bottom: 28px; }
+        .pipe-stage {
+            flex: 1; text-align: center; padding: 16px 10px; position: relative;
+            background: var(--card); border: 1px solid var(--border);
+        }
+        .pipe-stage:first-child { border-radius: 10px 0 0 10px; }
+        .pipe-stage:last-child { border-radius: 0 10px 10px 0; }
+        .pipe-stage .pipe-count { font-size: 28px; font-weight: 800; }
+        .pipe-stage .pipe-label { font-size: 11px; color: var(--gray400); margin-top: 4px; text-transform: uppercase; letter-spacing: .3px; }
+        .pipe-stage .pipe-pct { font-size: 11px; margin-top: 2px; font-weight: 600; }
+        .pipe-arrow { display: flex; align-items: center; font-size: 18px; color: var(--gray400); padding: 0 2px; }
+
+        /* ── Table ── */
+        .table-wrap { background: var(--card); border-radius: 10px; box-shadow: var(--shadow); overflow-x: auto; margin-bottom: 28px; }
+        .table-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        .table-header h3 { font-size: 14px; font-weight: 600; }
+        .table-header .search { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; width: 220px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fb; padding: 10px 14px; font-size: 11px; text-transform: uppercase; color: var(--gray400); letter-spacing: .4px; border-bottom: 1px solid var(--border); text-align: left; cursor: pointer; white-space: nowrap; }
+        th:hover { color: var(--blue); }
+        td { padding: 10px 14px; border-bottom: 1px solid #f5f5f5; font-size: 13px; white-space: nowrap; }
+        tr:hover { background: #f8faff; }
+        .badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .b-green { background: #dcfce7; color: #166534; }
+        .b-amber { background: #fef3c7; color: #92400e; }
+        .b-red { background: #fee2e2; color: #991b1b; }
+        .b-blue { background: #dbeafe; color: #1e40af; }
+        .b-purple { background: #f3e8ff; color: #6b21a8; }
+        .b-gray { background: #f3f4f6; color: #4b5563; }
+
+        /* ── Stat-row inside card ── */
+        .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .lbl { font-size: 13px; color: var(--gray600); }
+        .stat-row .val { font-size: 13px; font-weight: 700; }
+
+        /* ── Chart Canvas ── */
+        .chart-container { position: relative; width: 100%; }
+        .chart-container canvas { width: 100% !important; }
+
+        /* ── Responsive ── */
+        @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 900px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .pipeline { flex-wrap: wrap; }
+        }
+
+        /* ── Tabs ── */
+        .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 2px solid var(--border); }
+        .tab {
+            padding: 10px 22px; font-size: 13px; font-weight: 600; color: var(--gray400);
+            cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: .2s;
+        }
+        .tab:hover { color: var(--gray600); }
+        .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ── Legend ── */
+        .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray600); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* ── Drill-down Panel ── */
+        .drill-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:900; }
+        .drill-overlay.open { display:block; }
+        .drill-panel {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:910;
+            background:#fff; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.2);
+            width:720px; max-width:95vw; max-height:85vh; overflow-y:auto; padding:28px; display:none;
+        }
+        .drill-panel.open { display:block; animation: fadeUp .25s ease; }
+        @keyframes fadeUp { from{opacity:0;transform:translate(-50%,-48%)} to{opacity:1;transform:translate(-50%,-50%)} }
+        .drill-panel .dp-close { float:right; background:none; border:none; font-size:22px; cursor:pointer; color:var(--gray400); line-height:1; }
+        .drill-panel .dp-close:hover { color:var(--red); }
+        .drill-panel h2 { font-size:17px; font-weight:700; margin-bottom:20px; }
+        .dp-row { display:flex; gap:24px; margin-bottom:18px; }
+        .dp-col { flex:1; }
+        .dp-label { font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--gray400); margin-bottom:3px; }
+        .dp-val { font-size:14px; font-weight:600; }
+        .dp-timeline { position:relative; padding-left:22px; margin-top:8px; }
+        .dp-timeline::before { content:''; position:absolute; left:7px; top:0; bottom:0; width:2px; background:var(--border); }
+        .dp-step { position:relative; padding:8px 0 8px 16px; font-size:13px; }
+        .dp-step::before { content:''; position:absolute; left:-19px; top:12px; width:12px; height:12px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 2px var(--border); }
+        .dp-step.done::before { background:var(--green); box-shadow:0 0 0 2px var(--green); }
+        .dp-step.active::before { background:var(--blue); box-shadow:0 0 0 2px var(--blue); }
+        .dp-step.esc::before { background:var(--red); box-shadow:0 0 0 2px var(--red); }
+        .dp-step .dp-ts { color:var(--gray400); font-size:11px; margin-left:8px; }
+
+        /* ── Case Search Box (Overview) ── */
+        .case-search-bar { display:flex; gap:10px; margin-bottom:18px; align-items:center; }
+        .case-search-bar input { flex:1; max-width:360px; padding:8px 14px; border:1px solid var(--border); border-radius:8px; font-size:13px; }
+        .case-search-bar button { padding:8px 18px; background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+        .case-search-bar button:hover { background:#2563eb; }
+        .case-mini-table { width:100%; border-collapse:collapse; }
+        .case-mini-table th { background:#f8f9fb; padding:8px 12px; font-size:11px; text-transform:uppercase; color:var(--gray400); letter-spacing:.4px; border-bottom:1px solid var(--border); text-align:left; }
+        .case-mini-table td { padding:8px 12px; border-bottom:1px solid #f5f5f5; font-size:12px; cursor:pointer; }
+        .case-mini-table tr:hover { background:#f0f4ff; }
+        .case-mini-table .cid-link { color:var(--blue); font-weight:600; text-decoration:underline; cursor:pointer; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<div class="header">
+    <div>
+        <h1>MSS Follow-up &amp; Closure Agent — Reporting Dashboard</h1>
+        <div class="subtitle">AI-Agent performance monitoring &amp; case lifecycle analytics</div>
+    </div>
+    <div class="header-right">
+        <select id="filterPeriod">
+            <option>Last 7 Days</option>
+            <option selected>Last 30 Days</option>
+            <option>Last 90 Days</option>
+            <option>Custom Range</option>
+        </select>
+        <select id="filterSeverity">
+            <option value="">All Severities</option>
+            <option>Sev B</option>
+            <option>Sev C</option>
+        </select>
+        <select id="filterLocale">
+            <option value="">All Locales</option>
+            <option>English</option>
+        </select>
+        <select id="filterSAP">
+            <option value="">All SAPs</option>
+            <option>Surface</option>
+            <option>Windows</option>
+            <option>Office</option>
+        </select>
+        <button class="refresh-btn" onclick="location.reload()">⟳ Refresh</button>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════ TAB NAV ═══════════════════ -->
+<div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="funnel">Funnel &amp; Pipeline</div>
+    <div class="tab" data-tab="followup">Follow-up Analysis</div>
+    <div class="tab" data-tab="outcomes">Outcomes &amp; Escalations</div>
+    <div class="tab" data-tab="csat">CSAT &amp; Quality</div>
+    <div class="tab" data-tab="cases">Case-Level Detail</div>
+    <div class="tab" data-tab="evals">Agent Evals</div>
+</div>
+
+<!-- ═══════════════════ TAB 1 — OVERVIEW ═══════════════════ -->
+<div class="tab-content active" id="tab-overview">
+
+    <div class="section-title st-blue">Agent Volume &amp; Performance KPIs</div>
+    <div class="kpi-row">
+        <div class="kpi">
+            <div class="bar" style="background:var(--blue)"></div>
+            <div class="label">Total Cases Triggered</div>
+            <div class="value" style="color:var(--blue)">1,247</div>
+            <div class="delta delta-up">▲ 12% vs prior period</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--green)"></div>
+            <div class="label">Entry Criteria Pass Rate</div>
+            <div class="value" style="color:var(--green)">91.3%</div>
+            <div class="delta delta-up">▲ 2.1pp</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--amber)"></div>
+            <div class="label">Opt-Out Filtered</div>
+            <div class="value" style="color:var(--amber)">63</div>
+            <div class="delta delta-flat">— 5.1% of total</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--purple)"></div>
+            <div class="label">Auto-Closure Rate</div>
+            <div class="value" style="color:var(--purple)">68.4%</div>
+            <div class="delta delta-up">▲ 4.7pp</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--red)"></div>
+            <div class="label">Escalation Rate</div>
+            <div class="value" style="color:var(--red)">14.2%</div>
+            <div class="delta delta-down">▲ 1.3pp</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--teal)"></div>
+            <div class="label">Avg. Time-to-Close</div>
+            <div class="value" style="color:var(--teal)">4.6d</div>
+            <div class="delta delta-up">▼ 0.8d faster</div>
+        </div>
+    </div>
+
+    <!-- Stage Pipeline -->
+    <div class="section-title st-purple">Case Stage Pipeline (Current Snapshot)</div>
+    <div class="pipeline">
+        <div class="pipe-stage"><div class="pipe-count" style="color:var(--blue)">142</div><div class="pipe-label">Waiting for Cust. Confirmation</div><div class="pipe-pct" style="color:var(--blue)">48h timer</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage"><div class="pipe-count" style="color:var(--purple)">87</div><div class="pipe-label">1st FU Email Sent</div><div class="pipe-pct" style="color:var(--purple)">Timeline updated</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage"><div class="pipe-count" style="color:var(--amber)">53</div><div class="pipe-label">2nd FU Email Sent</div><div class="pipe-pct" style="color:var(--amber)">Timeline updated</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage"><div class="pipe-count" style="color:var(--teal)">31</div><div class="pipe-label">72h No Response</div><div class="pipe-pct" style="color:var(--teal)">Auto-close pending</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage"><div class="pipe-count" style="color:var(--green)">852</div><div class="pipe-label">Closed</div><div class="pipe-pct" style="color:var(--green)">68.4%</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage"><div class="pipe-count" style="color:var(--red)">177</div><div class="pipe-label">Escalated</div><div class="pipe-pct" style="color:var(--red)">14.2%</div></div>
+    </div>
+
+    <!-- Trend Chart -->
+    <div class="grid-2">
+        <div class="card">
+            <h3>Daily Volume Trend</h3>
+            <div class="chart-container"><canvas id="chartVolumeTrend"></canvas></div>
+        </div>
+        <div class="card">
+            <h3>Outcome Distribution (30 Days)</h3>
+            <div class="chart-container" style="max-width:320px;margin:0 auto"><canvas id="chartOutcomePie"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Case Drill-Down Section -->
+    <div class="section-title st-teal">Case Drill-Down</div>
+    <div class="card" style="margin-bottom:28px">
+        <div class="case-search-bar">
+            <input type="text" id="overviewCaseSearch" placeholder="Search by Case ID, SAP, SE, or Status..." onkeyup="filterOverviewCases()">
+            <button onclick="filterOverviewCases()">Search</button>
+        </div>
+        <div style="max-height:360px;overflow-y:auto">
+        <table class="case-mini-table" id="overviewCaseTable">
+            <thead>
+                <tr>
+                    <th>Case ID</th>
+                    <th>SAP</th>
+                    <th>Sev</th>
+                    <th>Current Stage</th>
+                    <th>Agent Status</th>
+                    <th>Age</th>
+                    <th>Owner</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr onclick="openDrill(0)"><td class="cid-link">2512110040000910</td><td>Surface</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>6d</td><td>SE-Martinez</td></tr>
+                <tr onclick="openDrill(1)"><td class="cid-link">2603040080001247</td><td>Windows</td><td>C</td><td><span class="badge b-green">3x Closed (Auto)</span></td><td><span class="badge b-green">Closure Sent</span></td><td>9d</td><td>SE-Chen</td></tr>
+                <tr onclick="openDrill(2)"><td class="cid-link">2601220060003385</td><td>Office</td><td>B</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>4d</td><td>SE-Patel</td></tr>
+                <tr onclick="openDrill(3)"><td class="cid-link">2511280030005512</td><td>Surface</td><td>C</td><td><span class="badge b-gray">Entry Fail</span></td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>SE-Kim</td></tr>
+                <tr onclick="openDrill(4)"><td class="cid-link">2602180050007764</td><td>Windows</td><td>B</td><td><span class="badge b-amber">Opt-Out</span></td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>SE-Johnson</td></tr>
+                <tr onclick="openDrill(5)"><td class="cid-link">2603110070002198</td><td>Surface</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>7d</td><td>SE-Lee</td></tr>
+                <tr onclick="openDrill(6)"><td class="cid-link">2601050040008830</td><td>Office</td><td>C</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>5d</td><td>SE-Garcia</td></tr>
+                <tr onclick="openDrill(7)"><td class="cid-link">2603250090004456</td><td>Windows</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>3d</td><td>SE-Thompson</td></tr>
+                <tr onclick="openDrill(8)"><td class="cid-link">2603280010006673</td><td>Surface</td><td>C</td><td><span class="badge b-purple">1st FU Sent</span></td><td><span class="badge b-purple">1st FU Sent</span></td><td>1d</td><td>SE-Wilson</td></tr>
+                <tr onclick="openDrill(9)"><td class="cid-link">2602070060009941</td><td>Office</td><td>B</td><td><span class="badge b-purple">2nd FU Sent</span></td><td><span class="badge b-purple">2nd FU Sent</span></td><td>5d</td><td>SE-Brown</td></tr>
+                <tr onclick="openDrill(10)"><td class="cid-link">2603150030001582</td><td>Surface</td><td>B</td><td><span class="badge b-blue">Waiting 48h</span></td><td><span class="badge b-blue">Pending</span></td><td>0d</td><td>SE-Rivera</td></tr>
+                <tr onclick="openDrill(11)"><td class="cid-link">2601300080003709</td><td>Windows</td><td>C</td><td><span class="badge b-green">3x Closed (Auto)</span></td><td><span class="badge b-green">Closure Sent</span></td><td>11d</td><td>SE-Adams</td></tr>
+                <tr onclick="openDrill(12)"><td class="cid-link">2603190020005847</td><td>Office</td><td>B</td><td><span class="badge b-amber">72h No Response</span></td><td><span class="badge b-amber">Auto-close pending</span></td><td>8d</td><td>SE-Nguyen</td></tr>
+                <tr onclick="openDrill(13)"><td class="cid-link">2512280040007123</td><td>Surface</td><td>C</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>5d</td><td>SE-Clark</td></tr>
+                <tr onclick="openDrill(14)"><td class="cid-link">2603080070008295</td><td>Windows</td><td>B</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>3d</td><td>SE-Hernandez</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Drill-Down Modal ── -->
+<div class="drill-overlay" id="drillOverlay" onclick="closeDrill()"></div>
+<div class="drill-panel" id="drillPanel">
+    <button class="dp-close" onclick="closeDrill()">&times;</button>
+    <h2 id="dpTitle">Case Details</h2>
+    <div class="dp-row">
+        <div class="dp-col"><div class="dp-label">Case ID</div><div class="dp-val" id="dpCaseId">—</div></div>
+        <div class="dp-col"><div class="dp-label">SAP</div><div class="dp-val" id="dpSAP">—</div></div>
+        <div class="dp-col"><div class="dp-label">Severity</div><div class="dp-val" id="dpSev">—</div></div>
+        <div class="dp-col"><div class="dp-label">Case Owner</div><div class="dp-val" id="dpOwner">—</div></div>
+    </div>
+    <div class="dp-row">
+        <div class="dp-col"><div class="dp-label">Entry Criteria</div><div class="dp-val" id="dpEntry">—</div></div>
+        <div class="dp-col"><div class="dp-label">Opt-Out Check</div><div class="dp-val" id="dpOptOut">—</div></div>
+        <div class="dp-col"><div class="dp-label">Agent Status</div><div class="dp-val" id="dpAgentStatus">—</div></div>
+        <div class="dp-col"><div class="dp-label">CSAT Score</div><div class="dp-val" id="dpCSAT">—</div></div>
+    </div>
+    <h3 style="font-size:14px;font-weight:700;margin:18px 0 10px;color:var(--gray600)">Workflow Timeline</h3>
+    <div class="dp-timeline" id="dpTimeline"></div>
+</div>
+
+<!-- ═══════════════════ TAB 2 — FUNNEL ═══════════════════ -->
+<div class="tab-content" id="tab-funnel">
+
+    <div class="section-title st-blue">Entry Criteria Validation Funnel</div>
+    <div class="card" style="margin-bottom:28px">
+        <div class="funnel">
+            <div class="funnel-step">
+                <div class="funnel-label">Cases Triggered</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:100%;background:var(--blue)">100%</div></div>
+                <div class="funnel-count">1,247</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">Entry Criteria Pass</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:91.3%;background:var(--green)">91.3%</div></div>
+                <div class="funnel-count">1,139</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">Opt-Out Cleared</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:86.2%;background:var(--teal)">86.2%</div></div>
+                <div class="funnel-count">1,076</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">1st Follow-up Sent</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:84.5%;background:var(--purple)">84.5%</div></div>
+                <div class="funnel-count">1,054</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">Customer Responded</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:48.8%;background:var(--amber)">48.8%</div></div>
+                <div class="funnel-count">609</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">2nd Follow-up Sent</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:35.7%;background:var(--amber)">35.7%</div></div>
+                <div class="funnel-count">445</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">Auto-Closed</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:68.4%;background:var(--green)">68.4%</div></div>
+                <div class="funnel-count">852</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-label">Escalated to SE</div>
+                <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:14.2%;background:var(--red)">14.2%</div></div>
+                <div class="funnel-count">177</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-title st-amber">Entry Criteria Rejection Breakdown</div>
+    <div class="grid-3">
+        <div class="card">
+            <h3>By Rejection Reason</h3>
+            <div class="stat-row"><span class="lbl">Wrong Modality (not Email/Web)</span><span class="val">34</span></div>
+            <div class="stat-row"><span class="lbl">Non-English Locale</span><span class="val">28</span></div>
+            <div class="stat-row"><span class="lbl">Severity A / D</span><span class="val">19</span></div>
+            <div class="stat-row"><span class="lbl">Ineligible SAP</span><span class="val">14</span></div>
+            <div class="stat-row"><span class="lbl">Non-Commercial Entitlement</span><span class="val">9</span></div>
+            <div class="stat-row"><span class="lbl">Opt-Out Flag = 1</span><span class="val">63</span></div>
+        </div>
+        <div class="card">
+            <h3>Rejection Trend (Weekly)</h3>
+            <div class="chart-container"><canvas id="chartRejectionTrend"></canvas></div>
+        </div>
+        <div class="card">
+            <h3>Opt-Out Analysis</h3>
+            <div class="stat-row"><span class="lbl">Total Opt-Outs</span><span class="val">63</span></div>
+            <div class="stat-row"><span class="lbl">Opt-Out Rate</span><span class="val">5.1%</span></div>
+            <div class="stat-row"><span class="lbl">Opt-Out via Part B Field</span><span class="val">41</span></div>
+            <div class="stat-row"><span class="lbl">Opt-Out via Internal Title "X"</span><span class="val">22</span></div>
+            <div class="stat-row"><span class="lbl">Top SAP with Opt-Outs</span><span class="val">Surface (38%)</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ TAB 3 — FOLLOW-UP ANALYSIS ═══════════════════ -->
+<div class="tab-content" id="tab-followup">
+
+    <div class="section-title st-purple">Follow-up Execution Metrics</div>
+    <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi">
+            <div class="bar" style="background:var(--blue)"></div>
+            <div class="label">1st Follow-up Sent</div>
+            <div class="value" style="color:var(--blue)">1,054</div>
+            <div class="delta delta-flat">98% of eligible</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--purple)"></div>
+            <div class="label">2nd Follow-up Sent</div>
+            <div class="value" style="color:var(--purple)">445</div>
+            <div class="delta delta-flat">42.2% needed 2nd</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--green)"></div>
+            <div class="label">Response After 1st</div>
+            <div class="value" style="color:var(--green)">57.8%</div>
+            <div class="delta delta-up">▲ 3.2pp</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--amber)"></div>
+            <div class="label">Response After 2nd</div>
+            <div class="value" style="color:var(--amber)">31.5%</div>
+            <div class="delta delta-down">▼ 1.1pp</div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>Customer Response Breakdown — After 1st Follow-up</h3>
+            <div class="stat-row"><span class="lbl">Satisfactory (→ Closure)</span><span class="val" style="color:var(--green)">412 (39.1%)</span></div>
+            <div class="stat-row"><span class="lbl">Not Satisfactory (→ Escalation)</span><span class="val" style="color:var(--red)">97 (9.2%)</span></div>
+            <div class="stat-row"><span class="lbl">No Response (→ 2nd Follow-up)</span><span class="val" style="color:var(--amber)">445 (42.2%)</span></div>
+            <div class="stat-row"><span class="lbl">Customer Replied Before 48h</span><span class="val" style="color:var(--teal)">100 (9.5%)</span></div>
+            <div class="chart-container" style="margin-top:14px"><canvas id="chartResp1"></canvas></div>
+        </div>
+        <div class="card">
+            <h3>Customer Response Breakdown — After 2nd Follow-up</h3>
+            <div class="stat-row"><span class="lbl">Satisfactory (→ Closure)</span><span class="val" style="color:var(--green)">78 (17.5%)</span></div>
+            <div class="stat-row"><span class="lbl">Not Satisfactory (→ Escalation)</span><span class="val" style="color:var(--red)">80 (18.0%)</span></div>
+            <div class="stat-row"><span class="lbl">No Response 72h (→ Auto-Close)</span><span class="val" style="color:var(--amber)">287 (64.5%)</span></div>
+            <div class="chart-container" style="margin-top:14px"><canvas id="chartResp2"></canvas></div>
+        </div>
+    </div>
+
+    <div class="section-title st-teal">SLA &amp; Timing Compliance</div>
+    <div class="grid-3">
+        <div class="card">
+            <h3>48h Timer — 1st Follow-up</h3>
+            <div class="stat-row"><span class="lbl">Sent Within 48h SLA</span><span class="val" style="color:var(--green)">98.7%</span></div>
+            <div class="stat-row"><span class="lbl">Avg. Time to Send</span><span class="val">47.2h</span></div>
+            <div class="stat-row"><span class="lbl">Late (>48h)</span><span class="val" style="color:var(--red)">14 cases</span></div>
+            <div class="stat-row"><span class="lbl">Incoming Email Check Pass</span><span class="val" style="color:var(--green)">99.1%</span></div>
+        </div>
+        <div class="card">
+            <h3>48h Timer — 2nd Follow-up</h3>
+            <div class="stat-row"><span class="lbl">Sent Within 48h SLA</span><span class="val" style="color:var(--green)">97.3%</span></div>
+            <div class="stat-row"><span class="lbl">Avg. Time to Send</span><span class="val">47.8h</span></div>
+            <div class="stat-row"><span class="lbl">Late (>48h)</span><span class="val" style="color:var(--red)">12 cases</span></div>
+        </div>
+        <div class="card">
+            <h3>72h Timer — Auto-Closure</h3>
+            <div class="stat-row"><span class="lbl">Closed Within 72h Window</span><span class="val" style="color:var(--green)">96.5%</span></div>
+            <div class="stat-row"><span class="lbl">Avg. Time to Close</span><span class="val">71.1h</span></div>
+            <div class="stat-row"><span class="lbl">Late (>72h)</span><span class="val" style="color:var(--red)">10 cases</span></div>
+            <div class="stat-row"><span class="lbl">CSAT Survey Sent</span><span class="val" style="color:var(--green)">100%</span></div>
+        </div>
+    </div>
+
+    <div class="section-title st-blue">Timeline Update Tracking</div>
+    <div class="card" style="margin-bottom:28px">
+        <div class="chart-container" style="max-height:260px"><canvas id="chartTimelineUpdates"></canvas></div>
+    </div>
+</div>
+
+<!-- ═══════════════════ TAB 4 — OUTCOMES & ESCALATIONS ═══════════════════ -->
+<div class="tab-content" id="tab-outcomes">
+
+    <div class="section-title st-green">Closure Analytics</div>
+    <div class="kpi-row" style="grid-template-columns:repeat(5,1fr)">
+        <div class="kpi">
+            <div class="bar" style="background:var(--green)"></div>
+            <div class="label">Total Closed</div>
+            <div class="value" style="color:var(--green)">852</div>
+            <div class="delta delta-up">68.4% of eligible</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--teal)"></div>
+            <div class="label">Closed After 1st FU</div>
+            <div class="value" style="color:var(--teal)">412</div>
+            <div class="delta delta-flat">48.4% of closures</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--purple)"></div>
+            <div class="label">Closed After 2nd FU</div>
+            <div class="value" style="color:var(--purple)">78</div>
+            <div class="delta delta-flat">9.2% of closures</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--amber)"></div>
+            <div class="label">Auto-Closed (No Response)</div>
+            <div class="value" style="color:var(--amber)">287</div>
+            <div class="delta delta-flat">33.7% of closures</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--blue)"></div>
+            <div class="label">Closure Email Sent</div>
+            <div class="value" style="color:var(--blue)">100%</div>
+            <div class="delta delta-up">All closures notified</div>
+        </div>
+    </div>
+
+    <div class="section-title st-red">Escalation Analytics</div>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Escalation Summary</h3>
+            <div class="stat-row"><span class="lbl">Total Escalated to SE</span><span class="val" style="color:var(--red)">177</span></div>
+            <div class="stat-row"><span class="lbl">After 1st Follow-up (Not Satisfactory)</span><span class="val">97 (54.8%)</span></div>
+            <div class="stat-row"><span class="lbl">After 2nd Follow-up (Not Satisfactory)</span><span class="val">80 (45.2%)</span></div>
+            <div class="stat-row"><span class="lbl">Avg. SE Pickup Time</span><span class="val">6.3h</span></div>
+            <div class="stat-row"><span class="lbl">Case Status → Troubleshooting</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div class="stat-row"><span class="lbl">SE Notified</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div class="stat-row"><span class="lbl">AI Agent Status → Escalated</span><span class="val" style="color:var(--green)">100%</span></div>
+        </div>
+        <div class="card">
+            <h3>Escalation by SAP / LOB</h3>
+            <div class="chart-container"><canvas id="chartEscBySAP"></canvas></div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>Closure vs Escalation Trend (Weekly)</h3>
+            <div class="chart-container"><canvas id="chartCloseVsEsc"></canvas></div>
+        </div>
+        <div class="card">
+            <h3>Case Ownership at Closure</h3>
+            <div class="stat-row"><span class="lbl">Ownership remains with SE</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div class="stat-row"><span class="lbl">Timeline Updated</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div class="stat-row"><span class="lbl">Closure Email Sent</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div class="stat-row"><span class="lbl">Closure Verbiage Applied</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div class="stat-row"><span class="lbl">CSAT Survey Sent</span><span class="val" style="color:var(--green)">100%</span></div>
+            <div style="margin-top:18px;padding:14px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">
+                <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:6px">✓ Compliance Checks</div>
+                <div style="font-size:12px;color:#166534">All automated actions (timeline update, closure email, CSAT survey) meet 99%+ execution rate.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ TAB 5 — CSAT & QUALITY ═══════════════════ -->
+<div class="tab-content" id="tab-csat">
+
+    <div class="section-title st-teal">CSAT Survey Performance</div>
+    <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi">
+            <div class="bar" style="background:var(--teal)"></div>
+            <div class="label">Surveys Sent</div>
+            <div class="value" style="color:var(--teal)">852</div>
+            <div class="delta delta-flat">100% of closures</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--blue)"></div>
+            <div class="label">Survey Response Rate</div>
+            <div class="value" style="color:var(--blue)">34.7%</div>
+            <div class="delta delta-up">▲ 2.3pp</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--green)"></div>
+            <div class="label">CSAT Score (Avg)</div>
+            <div class="value" style="color:var(--green)">4.1</div>
+            <div class="delta delta-up">▲ 0.2 / 5.0 scale</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--amber)"></div>
+            <div class="label">SE Ownership at Close</div>
+            <div class="value" style="color:var(--amber)">100%</div>
+            <div class="delta delta-flat">Ownership remains with SE</div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>CSAT by Closure Type</h3>
+            <div class="chart-container"><canvas id="chartCSATbyType"></canvas></div>
+        </div>
+        <div class="card">
+            <h3>CSAT Trend (Weekly)</h3>
+            <div class="chart-container"><canvas id="chartCSATtrend"></canvas></div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>CSAT Distribution</h3>
+            <div class="stat-row"><span class="lbl">⭐ 5 — Excellent</span><span class="val">38%</span></div>
+            <div class="stat-row"><span class="lbl">⭐ 4 — Good</span><span class="val">29%</span></div>
+            <div class="stat-row"><span class="lbl">⭐ 3 — Neutral</span><span class="val">18%</span></div>
+            <div class="stat-row"><span class="lbl">⭐ 2 — Poor</span><span class="val">10%</span></div>
+            <div class="stat-row"><span class="lbl">⭐ 1 — Very Poor</span><span class="val">5%</span></div>
+        </div>
+        <div class="card">
+            <h3>Quality Audit — Agent Actions</h3>
+            <div class="stat-row"><span class="lbl">Correct Follow-up Email Content</span><span class="val" style="color:var(--green)">99.2%</span></div>
+            <div class="stat-row"><span class="lbl">Correct Closure Email Content</span><span class="val" style="color:var(--green)">98.8%</span></div>
+            <div class="stat-row"><span class="lbl">Correct Primary Contact Used</span><span class="val" style="color:var(--green)">99.7%</span></div>
+            <div class="stat-row"><span class="lbl">Alternate Contacts Included</span><span class="val" style="color:var(--green)">97.5%</span></div>
+            <div class="stat-row"><span class="lbl">48h Incoming Email Check</span><span class="val" style="color:var(--green)">99.1%</span></div>
+            <div class="stat-row"><span class="lbl">Timeline Update Accuracy</span><span class="val" style="color:var(--green)">99.6%</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ TAB 6 — CASE-LEVEL DETAIL ═══════════════════ -->
+<div class="tab-content" id="tab-cases">
+
+    <div class="section-title st-blue">Case-Level Tracking</div>
+    <div class="table-wrap">
+        <div class="table-header">
+            <h3>All Cases in Workflow</h3>
+            <input class="search" type="text" placeholder="Search Case ID, SAP, SE..." id="caseSearch" onkeyup="filterTable()">
+        </div>
+        <table id="caseTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Case ID ↕</th>
+                    <th onclick="sortTable(1)">SAP ↕</th>
+                    <th onclick="sortTable(2)">Severity ↕</th>
+                    <th onclick="sortTable(3)">Entry Check ↕</th>
+                    <th onclick="sortTable(4)">Opt-Out ↕</th>
+                    <th onclick="sortTable(5)">1st FU Sent ↕</th>
+                    <th onclick="sortTable(6)">Resp After 1st ↕</th>
+                    <th onclick="sortTable(7)">2nd FU Sent ↕</th>
+                    <th onclick="sortTable(8)">Resp After 2nd ↕</th>
+                    <th onclick="sortTable(9)">Agent Status ↕</th>
+                    <th onclick="sortTable(10)">Timeline Updated ↕</th>
+                    <th onclick="sortTable(11)">CSAT ↕</th>
+                    <th onclick="sortTable(12)">Owner ↕</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>2512110040000910</td><td>Surface</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 15</td><td><span class="badge b-green">Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>5</td><td>SE-Martinez</td></tr>
+                <tr><td>2603040080001247</td><td>Windows</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 16</td><td><span class="badge b-amber">No Response</span></td><td>Mar 18</td><td><span class="badge b-amber">No Response</span></td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Chen</td></tr>
+                <tr><td>2601220060003385</td><td>Office</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 17</td><td><span class="badge b-red">Not Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Patel</td></tr>
+                <tr><td>2511280030005512</td><td>Surface</td><td>C</td><td><span class="badge b-red">Fail</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>—</td><td>SE-Kim</td></tr>
+                <tr><td>2602180050007764</td><td>Windows</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-amber">Opt-Out</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>—</td><td>SE-Johnson</td></tr>
+                <tr><td>2603110070002198</td><td>Surface</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 19</td><td><span class="badge b-amber">No Response</span></td><td>Mar 21</td><td><span class="badge b-green">Satisfactory</span></td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>4</td><td>SE-Lee</td></tr>
+                <tr><td>2601050040008830</td><td>Office</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 20</td><td><span class="badge b-amber">No Response</span></td><td>Mar 22</td><td><span class="badge b-red">Not Satisfactory</span></td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Garcia</td></tr>
+                <tr><td>2603250090004456</td><td>Windows</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 21</td><td><span class="badge b-green">Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>3</td><td>SE-Thompson</td></tr>
+                <tr><td>2603280010006673</td><td>Surface</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 22</td><td><span class="badge b-blue">Pending</span></td><td>—</td><td>—</td><td><span class="badge b-purple">1st FU Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Wilson</td></tr>
+                <tr><td>2602070060009941</td><td>Office</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 23</td><td><span class="badge b-amber">No Response</span></td><td>Mar 25</td><td><span class="badge b-blue">Pending</span></td><td><span class="badge b-purple">2nd FU Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Brown</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ═══════════════════ TAB 7 — AGENT EVALS ═══════════════════ -->
+<div class="tab-content" id="tab-evals">
+
+    <div class="section-title st-purple">Agent Evaluation Metrics (Pre-Prod PPE)</div>
+    <p style="font-size:13px;color:var(--gray400);margin-bottom:20px">Metrics applicable to the Follow-up &amp; Closure Agent per the eval framework. Last evaluation run: Mar 28, 2026.</p>
+
+    <!-- Reliability & Availability -->
+    <div class="section-title st-red">Reliability &amp; Availability</div>
+    <div class="grid-3">
+        <div class="card">
+            <h3>Failure Rate</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--green);text-align:center;margin:10px 0">2.1%</div>
+            <div class="stat-row"><span class="lbl">Case-Level: % with ≥1 engineering error</span><span class="val">1.8%</span></div>
+            <div class="stat-row"><span class="lbl">Agent: # failures / # invocations</span><span class="val">2.1%</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">< 5%</span></div>
+        </div>
+        <div class="card">
+            <h3>System Availability</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--green);text-align:center;margin:10px 0">99.7%</div>
+            <div class="stat-row"><span class="lbl">Uptime for agent / scenario</span><span class="val">99.7%</span></div>
+            <div class="stat-row"><span class="lbl">Downtime incidents (30d)</span><span class="val">2</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">≥ 99.5%</span></div>
+        </div>
+        <div class="card">
+            <h3>SLA Accuracy</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--green);text-align:center;margin:10px 0">97.8%</div>
+            <div class="stat-row"><span class="lbl">Emails sent with correct SLA timing</span><span class="val">97.8%</span></div>
+            <div class="stat-row"><span class="lbl">48h SLA breaches</span><span class="val" style="color:var(--red)">26</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">≥ 95%</span></div>
+        </div>
+    </div>
+
+    <!-- Response Quality -->
+    <div class="section-title st-blue">Response Quality</div>
+    <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi">
+            <div class="bar" style="background:var(--green)"></div>
+            <div class="label">Fluency</div>
+            <div class="value" style="color:var(--green)">94.2%</div>
+            <div class="delta delta-flat">Grammatically correct &amp; natural</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--blue)"></div>
+            <div class="label">Coherence</div>
+            <div class="value" style="color:var(--blue)">92.8%</div>
+            <div class="delta delta-flat">Logical structure &amp; readability</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--purple)"></div>
+            <div class="label">Relevance</div>
+            <div class="value" style="color:var(--purple)">91.5%</div>
+            <div class="delta delta-flat">Addresses user's specific issue</div>
+        </div>
+        <div class="kpi">
+            <div class="bar" style="background:var(--teal)"></div>
+            <div class="label">Completeness</div>
+            <div class="value" style="color:var(--teal)">89.3%</div>
+            <div class="delta delta-flat">Completes appropriate action (FU, closure)</div>
+        </div>
+    </div>
+
+    <!-- Safety & Fairness -->
+    <div class="section-title st-amber">Safety &amp; Fairness</div>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Risk &amp; Safety</h3>
+            <div class="stat-row"><span class="lbl">Hateful / Unfair content detected</span><span class="val" style="color:var(--green)">0</span></div>
+            <div class="stat-row"><span class="lbl">Sexual content detected</span><span class="val" style="color:var(--green)">0</span></div>
+            <div class="stat-row"><span class="lbl">Violent content detected</span><span class="val" style="color:var(--green)">0</span></div>
+            <div class="stat-row"><span class="lbl">Self-harm content detected</span><span class="val" style="color:var(--green)">0</span></div>
+            <div class="stat-row"><span class="lbl">Hallucination Detection Rate</span><span class="val" style="color:var(--green)">0.4%</span></div>
+            <div class="stat-row"><span class="lbl">Overall Risk Score</span><span class="val" style="color:var(--green)">Pass</span></div>
+        </div>
+        <div class="card">
+            <h3>Bias &amp; Fairness</h3>
+            <div class="stat-row"><span class="lbl">Demographic Bias Detected</span><span class="val" style="color:var(--green)">None</span></div>
+            <div class="stat-row"><span class="lbl">Sentiment Skew</span><span class="val" style="color:var(--green)">Neutral (0.02)</span></div>
+            <div class="stat-row"><span class="lbl">Response Consistency Across Segments</span><span class="val" style="color:var(--green)">98.1%</span></div>
+            <div class="stat-row"><span class="lbl">Overall Fairness Score</span><span class="val" style="color:var(--green)">Pass</span></div>
+        </div>
+    </div>
+
+    <!-- Task Execution -->
+    <div class="section-title st-teal">Task Execution</div>
+    <div class="grid-3">
+        <div class="card">
+            <h3>Intent Resolution Rate</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--teal);text-align:center;margin:10px 0">93.6%</div>
+            <div class="stat-row"><span class="lbl">Correct intent identified &amp; executed</span><span class="val">93.6%</span></div>
+            <div class="stat-row"><span class="lbl">Misclassified intents</span><span class="val" style="color:var(--red)">67</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">≥ 90%</span></div>
+        </div>
+        <div class="card">
+            <h3>Goal Completion Time</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--blue);text-align:center;margin:10px 0">12.4s</div>
+            <div class="stat-row"><span class="lbl">Time for email to get drafted correctly</span><span class="val">12.4s avg</span></div>
+            <div class="stat-row"><span class="lbl">P95</span><span class="val">28.1s</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">< 30s</span></div>
+        </div>
+        <div class="card">
+            <h3>Turn Count to Completion</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--purple);text-align:center;margin:10px 0">3.2</div>
+            <div class="stat-row"><span class="lbl"># internal / tool-executed turns per task</span><span class="val">3.2 avg</span></div>
+            <div class="stat-row"><span class="lbl">Max observed</span><span class="val">7</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">≤ 5</span></div>
+        </div>
+    </div>
+
+    <!-- Operational Efficiency -->
+    <div class="section-title st-green">Operational Efficiency</div>
+    <div class="grid-3">
+        <div class="card">
+            <h3>Human Escalation Rate</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--amber);text-align:center;margin:10px 0">14.2%</div>
+            <div class="stat-row"><span class="lbl"># human interventions / # total AI interactions</span><span class="val">14.2%</span></div>
+            <div class="stat-row"><span class="lbl">AI-Native completions</span><span class="val">85.8%</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">< 20%</span></div>
+        </div>
+        <div class="card">
+            <h3>Case Throughput</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--green);text-align:center;margin:10px 0">41.6</div>
+            <div class="stat-row"><span class="lbl"># cases closed / day (30d avg)</span><span class="val">41.6</span></div>
+            <div class="stat-row"><span class="lbl">Peak day</span><span class="val">58</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">≥ 30/day</span></div>
+        </div>
+        <div class="card">
+            <h3>Case Closure Accuracy</h3>
+            <div style="font-size:36px;font-weight:800;color:var(--green);text-align:center;margin:10px 0">98.4%</div>
+            <div class="stat-row"><span class="lbl">% of cases accurately closed</span><span class="val">98.4%</span></div>
+            <div class="stat-row"><span class="lbl">Incorrectly closed cases</span><span class="val" style="color:var(--red)">14</span></div>
+            <div class="stat-row"><span class="lbl">Target</span><span class="val" style="color:var(--green)">≥ 95%</span></div>
+        </div>
+    </div>
+
+    <!-- Eval Trend Chart -->
+    <div class="section-title st-purple">Eval Score Trends (Weekly)</div>
+    <div class="card" style="margin-bottom:28px">
+        <div class="chart-container"><canvas id="chartEvalTrend"></canvas></div>
+    </div>
+
+    <!-- Eval Scorecard Summary -->
+    <div class="section-title st-blue">Scorecard Summary</div>
+    <div class="table-wrap" style="margin-bottom:28px">
+        <table>
+            <thead>
+                <tr><th>Metric</th><th>Definition</th><th>Current</th><th>Target</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Failure Rate</td><td>% of cases with ≥1 engineering error</td><td>2.1%</td><td>< 5%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>System Availability</td><td>Uptime for agent / scenario</td><td>99.7%</td><td>≥ 99.5%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>SLA Accuracy</td><td>% emails sent with correct SLA timing</td><td>97.8%</td><td>≥ 95%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Case Closure Accuracy</td><td>% of cases accurately closed</td><td>98.4%</td><td>≥ 95%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Fluency</td><td>Grammatically correct &amp; natural responses</td><td>94.2%</td><td>≥ 90%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Coherence</td><td>Logical structure &amp; clear readability</td><td>92.8%</td><td>≥ 90%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Relevance</td><td>Addresses user's specific issue</td><td>91.5%</td><td>≥ 90%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Completeness</td><td>Completes appropriate next action</td><td>89.3%</td><td>≥ 85%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Risk &amp; Safety</td><td>Harmful content detection</td><td>0 flags</td><td>0</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Bias &amp; Fairness</td><td>Demographic bias &amp; sentiment skew</td><td>Neutral</td><td>Neutral</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Intent Resolution Rate</td><td>Correct intent identified &amp; executed</td><td>93.6%</td><td>≥ 90%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Goal Completion Time</td><td>Time for email draft to be correct</td><td>12.4s</td><td>< 30s</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Turn Count to Completion</td><td># internal turns per task</td><td>3.2</td><td>≤ 5</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Human Escalation Rate</td><td># human interventions / total interactions</td><td>14.2%</td><td>< 20%</td><td><span class="badge b-green">Pass</span></td></tr>
+                <tr><td>Case Throughput</td><td># cases closed / day</td><td>41.6</td><td>≥ 30</td><td><span class="badge b-green">Pass</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+/* ── Tab Navigation ── */
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+/* ── Drill-Down Data ── */
+const drillData = [
+    { id:'2512110040000910', sap:'Surface', sev:'B', owner:'SE-Martinez', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'5',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 15 09:12'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 15 09:12'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 15 09:13'},
+        {s:'done', t:'48h timer started, ownership remains with case owner', ts:'Mar 15 09:13'},
+        {s:'done', t:'1st FU email sent to Primary + Alternate contacts, timeline updated', ts:'Mar 17 09:15'},
+        {s:'done', t:'Customer responded — Satisfactory', ts:'Mar 18 14:33'},
+        {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Mar 18 14:34'},
+        {s:'done', t:'CSAT survey sent — Score: 5', ts:'Mar 21 10:00'},
+      ]},
+    { id:'2603040080001247', sap:'Windows', sev:'C', owner:'SE-Chen', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 4 11:20'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 4 11:20'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 4 11:21'},
+        {s:'done', t:'48h timer started', ts:'Mar 4 11:21'},
+        {s:'done', t:'1st FU email sent to Primary + Alternate contacts, timeline updated', ts:'Mar 6 11:22'},
+        {s:'done', t:'No customer response after 48h', ts:'Mar 8 11:22'},
+        {s:'done', t:'2nd FU email sent to Primary + Alternate contacts, timeline updated', ts:'Mar 8 11:23'},
+        {s:'done', t:'No customer response after 72h', ts:'Mar 11 11:23'},
+        {s:'done', t:'Closure email sent, timeline updated, CSAT survey sent', ts:'Mar 11 11:24'},
+        {s:'done', t:'Case ownership remains with SE at closure', ts:'Mar 11 11:24'},
+      ]},
+    { id:'2601220060003385', sap:'Office', sev:'B', owner:'SE-Patel', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 17 08:45'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 17 08:45'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 17 08:46'},
+        {s:'done', t:'48h timer started', ts:'Mar 17 08:46'},
+        {s:'done', t:'1st FU email sent to Primary + Alternate contacts, timeline updated', ts:'Mar 19 08:47'},
+        {s:'esc', t:'Customer responded — Not Satisfactory', ts:'Mar 20 10:15'},
+        {s:'esc', t:'Case status → Troubleshooting, SE notified, AI Agent status → Escalated', ts:'Mar 20 10:15'},
+      ]},
+    { id:'2511280030005512', sap:'Surface', sev:'C', owner:'SE-Kim', entry:'Fail', optOut:'—', agentStatus:'Exited', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Nov 28 15:30'},
+        {s:'esc', t:'Entry Criteria validated — Fail (Severity D)', ts:'Nov 28 15:30'},
+        {s:'esc', t:'Do not initiate — flow exited', ts:'Nov 28 15:30'},
+      ]},
+    { id:'2602180050007764', sap:'Windows', sev:'B', owner:'SE-Johnson', entry:'Pass', optOut:'Opt-Out', agentStatus:'Exited', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Feb 18 13:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Feb 18 13:00'},
+        {s:'esc', t:'Opt-Out confirmed — Internal Title begins with "X"', ts:'Feb 18 13:01'},
+        {s:'esc', t:'Do not initiate — flow exited', ts:'Feb 18 13:01'},
+      ]},
+    { id:'2603110070002198', sap:'Surface', sev:'B', owner:'SE-Lee', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'4',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 11 10:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 11 10:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 11 10:01'},
+        {s:'done', t:'48h timer started', ts:'Mar 11 10:01'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Mar 13 10:02'},
+        {s:'done', t:'No customer response after 48h', ts:'Mar 15 10:02'},
+        {s:'done', t:'2nd FU email sent, timeline updated', ts:'Mar 15 10:03'},
+        {s:'done', t:'Customer responded — Satisfactory', ts:'Mar 16 16:20'},
+        {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Mar 16 16:21'},
+        {s:'done', t:'CSAT survey sent — Score: 4', ts:'Mar 19 10:00'},
+      ]},
+    { id:'2601050040008830', sap:'Office', sev:'C', owner:'SE-Garcia', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 20 07:30'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 20 07:30'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 20 07:31'},
+        {s:'done', t:'48h timer started', ts:'Mar 20 07:31'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Mar 22 07:32'},
+        {s:'done', t:'No customer response after 48h', ts:'Mar 24 07:32'},
+        {s:'done', t:'2nd FU email sent, timeline updated', ts:'Mar 24 07:33'},
+        {s:'esc', t:'Customer responded — Not Satisfactory', ts:'Mar 25 09:45'},
+        {s:'esc', t:'Case status → Troubleshooting, SE notified, AI Agent status → Escalated', ts:'Mar 25 09:45'},
+      ]},
+    { id:'2603250090004456', sap:'Windows', sev:'B', owner:'SE-Thompson', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'3',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 21 14:10'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 21 14:10'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 21 14:11'},
+        {s:'done', t:'48h timer started', ts:'Mar 21 14:11'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Mar 23 14:12'},
+        {s:'done', t:'Customer responded — Satisfactory', ts:'Mar 24 08:50'},
+        {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Mar 24 08:51'},
+        {s:'done', t:'CSAT survey sent — Score: 3', ts:'Mar 27 09:00'},
+      ]},
+    { id:'2603280010006673', sap:'Surface', sev:'C', owner:'SE-Wilson', entry:'Pass', optOut:'Clear', agentStatus:'1st FU Sent', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 28 09:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 28 09:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 28 09:01'},
+        {s:'done', t:'48h timer started', ts:'Mar 28 09:01'},
+        {s:'active', t:'1st FU email sent, timeline updated', ts:'Mar 30 09:02'},
+        {s:'', t:'Awaiting customer response...', ts:''},
+      ]},
+    { id:'2602070060009941', sap:'Office', sev:'B', owner:'SE-Brown', entry:'Pass', optOut:'Clear', agentStatus:'2nd FU Sent', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 23 11:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 23 11:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 23 11:01'},
+        {s:'done', t:'48h timer started', ts:'Mar 23 11:01'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Mar 25 11:02'},
+        {s:'done', t:'No customer response after 48h', ts:'Mar 27 11:02'},
+        {s:'active', t:'2nd FU email sent, timeline updated', ts:'Mar 27 11:03'},
+        {s:'', t:'Awaiting customer response...', ts:''},
+      ]},
+    { id:'2603150030001582', sap:'Surface', sev:'B', owner:'SE-Rivera', entry:'Pass', optOut:'Clear', agentStatus:'Pending', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 31 08:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 31 08:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 31 08:01'},
+        {s:'active', t:'48h timer started, ownership remains with case owner', ts:'Mar 31 08:01'},
+        {s:'', t:'Awaiting 48h window...', ts:''},
+      ]},
+    { id:'2601300080003709', sap:'Windows', sev:'C', owner:'SE-Adams', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Jan 30 10:30'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Jan 30 10:30'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Jan 30 10:31'},
+        {s:'done', t:'48h timer started', ts:'Jan 30 10:31'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Feb 1 10:32'},
+        {s:'done', t:'No customer response after 48h', ts:'Feb 3 10:32'},
+        {s:'done', t:'2nd FU email sent, timeline updated', ts:'Feb 3 10:33'},
+        {s:'done', t:'No customer response after 72h', ts:'Feb 6 10:33'},
+        {s:'done', t:'Closure email sent, timeline updated, CSAT survey sent', ts:'Feb 6 10:34'},
+        {s:'done', t:'Case ownership remains with SE at closure', ts:'Feb 6 10:34'},
+      ]},
+    { id:'2603190020005847', sap:'Office', sev:'B', owner:'SE-Nguyen', entry:'Pass', optOut:'Clear', agentStatus:'Auto-close pending', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 19 09:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 19 09:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 19 09:01'},
+        {s:'done', t:'48h timer started', ts:'Mar 19 09:01'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Mar 21 09:02'},
+        {s:'done', t:'No customer response after 48h', ts:'Mar 23 09:02'},
+        {s:'done', t:'2nd FU email sent, timeline updated', ts:'Mar 23 09:03'},
+        {s:'active', t:'No customer response — 72h window active', ts:'Mar 26 09:03'},
+        {s:'', t:'Auto-close pending...', ts:''},
+      ]},
+    { id:'2512280040007123', sap:'Surface', sev:'C', owner:'SE-Clark', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'4',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Dec 28 12:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Dec 28 12:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Dec 28 12:01'},
+        {s:'done', t:'48h timer started', ts:'Dec 28 12:01'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Dec 30 12:02'},
+        {s:'done', t:'Customer responded — Satisfactory', ts:'Dec 31 15:40'},
+        {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Dec 31 15:41'},
+        {s:'done', t:'CSAT survey sent — Score: 4', ts:'Jan 3 10:00'},
+      ]},
+    { id:'2603080070008295', sap:'Windows', sev:'B', owner:'SE-Hernandez', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
+      timeline:[
+        {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 8 14:00'},
+        {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 8 14:00'},
+        {s:'done', t:'Opt-Out check — Clear', ts:'Mar 8 14:01'},
+        {s:'done', t:'48h timer started', ts:'Mar 8 14:01'},
+        {s:'done', t:'1st FU email sent, timeline updated', ts:'Mar 10 14:02'},
+        {s:'esc', t:'Customer responded — Not Satisfactory', ts:'Mar 11 09:30'},
+        {s:'esc', t:'Case status → Troubleshooting, SE notified, AI Agent status → Escalated', ts:'Mar 11 09:30'},
+      ]},
+];
+
+function openDrill(idx) {
+    const c = drillData[idx];
+    document.getElementById('dpCaseId').textContent = c.id;
+    document.getElementById('dpSAP').textContent = c.sap;
+    document.getElementById('dpSev').textContent = 'Sev ' + c.sev;
+    document.getElementById('dpOwner').textContent = c.owner;
+    document.getElementById('dpEntry').innerHTML = c.entry === 'Pass' ? '<span class="badge b-green">Pass</span>' : '<span class="badge b-red">Fail</span>';
+    document.getElementById('dpOptOut').innerHTML = c.optOut === 'Clear' ? '<span class="badge b-green">Clear</span>' : c.optOut === 'Opt-Out' ? '<span class="badge b-amber">Opt-Out</span>' : '—';
+    document.getElementById('dpAgentStatus').textContent = c.agentStatus;
+    document.getElementById('dpCSAT').textContent = c.csat;
+    document.getElementById('dpTitle').textContent = 'Case ' + c.id;
+    const tl = document.getElementById('dpTimeline');
+    tl.innerHTML = c.timeline.map(step =>
+        '<div class="dp-step ' + step.s + '">' + step.t + (step.ts ? '<span class="dp-ts">' + step.ts + '</span>' : '') + '</div>'
+    ).join('');
+    document.getElementById('drillOverlay').classList.add('open');
+    document.getElementById('drillPanel').classList.add('open');
+}
+function closeDrill() {
+    document.getElementById('drillOverlay').classList.remove('open');
+    document.getElementById('drillPanel').classList.remove('open');
+}
+function filterOverviewCases() {
+    const q = document.getElementById('overviewCaseSearch').value.toLowerCase();
+    document.querySelectorAll('#overviewCaseTable tbody tr').forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+/* ── Chart: Volume Trend ── */
+new Chart(document.getElementById('chartVolumeTrend'), {
+    type: 'line',
+    data: {
+        labels: ['Mar 1','Mar 4','Mar 7','Mar 10','Mar 13','Mar 16','Mar 19','Mar 22','Mar 25','Mar 28','Mar 31'],
+        datasets: [
+            { label: 'Cases Triggered', data: [38,42,35,48,51,44,46,50,53,41,47], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: .3 },
+            { label: 'Closures', data: [24,29,22,31,36,30,33,35,37,28,32], borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.1)', fill: true, tension: .3 },
+            { label: 'Escalations', data: [5,6,4,7,8,6,5,7,8,6,7], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.1)', fill: true, tension: .3 }
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, scales: { y: { beginAtZero: true } } }
+});
+
+/* ── Chart: Outcome Pie ── */
+new Chart(document.getElementById('chartOutcomePie'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Closed (Satisfactory)', 'Auto-Closed (No Response)', 'Escalated', 'In Progress', 'Entry Rejected'],
+        datasets: [{ data: [490, 287, 177, 125, 168], backgroundColor: ['#22c55e','#f59e0b','#ef4444','#3b82f6','#9ca3af'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+});
+
+/* ── Chart: Rejection Trend ── */
+new Chart(document.getElementById('chartRejectionTrend'), {
+    type: 'bar',
+    data: {
+        labels: ['W1','W2','W3','W4'],
+        datasets: [
+            { label: 'Entry Fail', data: [22,28,25,33], backgroundColor: '#ef4444' },
+            { label: 'Opt-Out', data: [14,16,18,15], backgroundColor: '#f59e0b' }
+        ]
+    },
+    options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+});
+
+/* ── Chart: Response After 1st FU ── */
+new Chart(document.getElementById('chartResp1'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Satisfactory','Not Satisfactory','No Response','Pre-48h Reply'],
+        datasets: [{ data: [412,97,445,100], backgroundColor: ['#22c55e','#ef4444','#f59e0b','#14b8a6'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+});
+
+/* ── Chart: Response After 2nd FU ── */
+new Chart(document.getElementById('chartResp2'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Satisfactory','Not Satisfactory','No Response (Auto-Close)'],
+        datasets: [{ data: [78,80,287], backgroundColor: ['#22c55e','#ef4444','#f59e0b'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+});
+
+/* ── Chart: Timeline Updates ── */
+new Chart(document.getElementById('chartTimelineUpdates'), {
+    type: 'bar',
+    data: {
+        labels: ['1st FU — Timeline Updated','2nd FU — Timeline Updated','Closure — Timeline Updated'],
+        datasets: [
+            { label: 'Updated', data: [1040,438,845], backgroundColor: '#22c55e' },
+            { label: 'Missing', data: [14,7,7], backgroundColor: '#ef4444' }
+        ]
+    },
+    options: { indexAxis: 'y', responsive: true, scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } }, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+});
+
+/* ── Chart: Escalation by SAP ── */
+new Chart(document.getElementById('chartEscBySAP'), {
+    type: 'bar',
+    data: {
+        labels: ['Surface','Windows','Office','Other'],
+        datasets: [
+            { label: 'After 1st FU', data: [35,28,22,12], backgroundColor: '#ef4444' },
+            { label: 'After 2nd FU', data: [28,24,18,10], backgroundColor: '#f59e0b' }
+        ]
+    },
+    options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+});
+
+/* ── Chart: Close vs Esc Trend ── */
+new Chart(document.getElementById('chartCloseVsEsc'), {
+    type: 'line',
+    data: {
+        labels: ['W1','W2','W3','W4'],
+        datasets: [
+            { label: 'Closure Rate %', data: [65,67,69,72], borderColor: '#22c55e', tension: .3, yAxisID: 'y' },
+            { label: 'Escalation Rate %', data: [16,15,14,12], borderColor: '#ef4444', tension: .3, yAxisID: 'y' }
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, scales: { y: { beginAtZero: true, max: 100 } } }
+});
+
+/* ── Chart: CSAT by Closure Type ── */
+new Chart(document.getElementById('chartCSATbyType'), {
+    type: 'bar',
+    data: {
+        labels: ['Customer Closed','3x Closed (Auto)'],
+        datasets: [{ label: 'Avg CSAT', data: [4.3, 3.6], backgroundColor: ['#22c55e','#f59e0b'] }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 5 } } }
+});
+
+/* ── Chart: CSAT Trend ── */
+new Chart(document.getElementById('chartCSATtrend'), {
+    type: 'line',
+    data: {
+        labels: ['W1','W2','W3','W4'],
+        datasets: [
+            { label: 'Overall CSAT', data: [3.8, 4.0, 4.1, 4.3], borderColor: '#14b8a6', tension: .3, fill: false },
+            { label: 'Survey Response Rate %', data: [30, 32, 35, 38], borderColor: '#3b82f6', tension: .3, borderDash: [5,5], fill: false, yAxisID: 'y1' }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+        scales: { y: { beginAtZero: true, max: 5, title: { display: true, text: 'CSAT' } }, y1: { position: 'right', beginAtZero: true, max: 100, title: { display: true, text: 'Response %' }, grid: { drawOnChartArea: false } } }
+    }
+});
+
+/* ── Chart: Eval Score Trend ── */
+new Chart(document.getElementById('chartEvalTrend'), {
+    type: 'line',
+    data: {
+        labels: ['W1 (Mar 3)','W2 (Mar 10)','W3 (Mar 17)','W4 (Mar 24)'],
+        datasets: [
+            { label: 'Fluency', data: [92.0, 93.1, 93.8, 94.2], borderColor: '#22c55e', tension: .3, fill: false },
+            { label: 'Coherence', data: [90.5, 91.2, 92.0, 92.8], borderColor: '#3b82f6', tension: .3, fill: false },
+            { label: 'Relevance', data: [89.8, 90.3, 91.0, 91.5], borderColor: '#8b5cf6', tension: .3, fill: false },
+            { label: 'Completeness', data: [86.5, 87.8, 88.5, 89.3], borderColor: '#14b8a6', tension: .3, fill: false },
+            { label: 'Intent Resolution', data: [91.2, 92.0, 93.1, 93.6], borderColor: '#f59e0b', tension: .3, fill: false },
+            { label: 'Case Closure Accuracy', data: [97.1, 97.8, 98.0, 98.4], borderColor: '#ef4444', tension: .3, borderDash: [5,3], fill: false },
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+        scales: { y: { min: 80, max: 100, title: { display: true, text: 'Score %' } } }
+    }
+});
+
+/* ── Table Sort ── */
+let sortDir = {};
+function sortTable(col) {
+    const table = document.getElementById('caseTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.rows);
+    sortDir[col] = !sortDir[col];
+    rows.sort((a, b) => {
+        const va = a.cells[col].textContent.trim();
+        const vb = b.cells[col].textContent.trim();
+        return sortDir[col] ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+}
+
+/* ── Table Filter ── */
+function filterTable() {
+    const q = document.getElementById('caseSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#caseTable tbody tr');
+    rows.forEach(r => { r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+}
+</script>
+</body>
+</html>
