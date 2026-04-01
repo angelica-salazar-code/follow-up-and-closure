@@ -185,40 +185,44 @@
         <h1>MSS Follow-up &amp; Closure Agent — Reporting Dashboard</h1>
         <div class="subtitle">AI-Agent performance monitoring &amp; case lifecycle analytics</div>
     </div>
-    <div class="header-right">
-        <label style="font-size:11px;opacity:.6">Period</label>
-        <select id="filterPeriod" onchange="applyFilters()">
-            <option>Last 7 Days</option>
-            <option selected>Last 30 Days</option>
-            <option>Last 90 Days</option>
-            <option>Custom Range</option>
-        </select>
-        <label style="font-size:11px;opacity:.6">Severity</label>
-        <select id="filterSeverity" onchange="applyFilters()">
-            <option value="">All Severities</option>
-            <option value="B">Sev B</option>
-            <option value="C">Sev C</option>
-        </select>
-        <label style="font-size:11px;opacity:.6">Locale</label>
-        <select id="filterLocale" onchange="applyFilters()">
-            <option value="">All Locales</option>
-            <option value="English">English</option>
-        </select>
-        <label style="font-size:11px;opacity:.6">Product Family</label>
-        <select id="filterSAP" onchange="updateProductNameFilter(); applyFilters()">
-            <option value="">All Families</option>
-            <option value="MAICPP Concierge">MAICPP Concierge</option>
-            <option value="Partner Center">Partner Center</option>
-        </select>
-        <label style="font-size:11px;opacity:.6">Product Name</label>
-        <select id="filterProductName" onchange="updateCategoryFilter(); applyFilters()">
-            <option value="">All Products</option>
-        </select>
-        <label style="font-size:11px;opacity:.6">Category</label>
-        <select id="filterCategory" onchange="applyFilters()">
-            <option value="">All Categories</option>
-        </select>
-        <button class="refresh-btn" onclick="resetFilters()">⟳ Reset</button>
+    <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <div class="header-right">
+            <label style="font-size:11px;opacity:.6">Period</label>
+            <select id="filterPeriod" onchange="applyFilters()">
+                <option>Last 7 Days</option>
+                <option selected>Last 30 Days</option>
+                <option>Last 90 Days</option>
+                <option>Custom Range</option>
+            </select>
+            <label style="font-size:11px;opacity:.6">Severity</label>
+            <select id="filterSeverity" onchange="applyFilters()">
+                <option value="">All Severities</option>
+                <option value="B">Sev B</option>
+                <option value="C">Sev C</option>
+            </select>
+            <label style="font-size:11px;opacity:.6">Locale</label>
+            <select id="filterLocale" onchange="applyFilters()">
+                <option value="">All Locales</option>
+                <option value="English">English</option>
+            </select>
+        </div>
+        <div class="header-right">
+            <label style="font-size:11px;opacity:.6">Product Family</label>
+            <select id="filterSAP" onchange="updateProductNameFilter(); applyFilters()">
+                <option value="">All Families</option>
+                <option value="MAICPP Concierge">MAICPP Concierge</option>
+                <option value="Partner Center">Partner Center</option>
+            </select>
+            <label style="font-size:11px;opacity:.6">Product Name</label>
+            <select id="filterProductName" onchange="updateCategoryFilter(); applyFilters()">
+                <option value="">All Products</option>
+            </select>
+            <label style="font-size:11px;opacity:.6">Category</label>
+            <select id="filterCategory" onchange="applyFilters()">
+                <option value="">All Categories</option>
+            </select>
+            <button class="refresh-btn" onclick="resetFilters()">⟳ Reset</button>
+        </div>
     </div>
 </div>
 
