@@ -22,12 +22,14 @@
         }
         .header h1 { font-size: 20px; font-weight: 700; }
         .header .subtitle { font-size: 12px; opacity: .65; margin-top: 2px; }
-        .header-right { display: flex; align-items: center; gap: 16px; }
+        .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .header-right select, .header-right input {
-            background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
-            color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px;
+            background: #fff; border: 1px solid rgba(255,255,255,.3);
+            color: #333; padding: 7px 12px; border-radius: 6px; font-size: 12px;
+            cursor: pointer; min-width: 120px; appearance: auto;
         }
-        .header-right option { color: #333; }
+        .header-right select:focus { outline: 2px solid var(--blue); }
+        .header-right option { color: #333; background: #fff; }
         .refresh-btn { background: rgba(255,255,255,.15); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
         .refresh-btn:hover { background: rgba(255,255,255,.25); }
 
@@ -184,28 +186,39 @@
         <div class="subtitle">AI-Agent performance monitoring &amp; case lifecycle analytics</div>
     </div>
     <div class="header-right">
-        <select id="filterPeriod">
+        <label style="font-size:11px;opacity:.6">Period</label>
+        <select id="filterPeriod" onchange="applyFilters()">
             <option>Last 7 Days</option>
             <option selected>Last 30 Days</option>
             <option>Last 90 Days</option>
             <option>Custom Range</option>
         </select>
-        <select id="filterSeverity">
+        <label style="font-size:11px;opacity:.6">Severity</label>
+        <select id="filterSeverity" onchange="applyFilters()">
             <option value="">All Severities</option>
-            <option>Sev B</option>
-            <option>Sev C</option>
+            <option value="B">Sev B</option>
+            <option value="C">Sev C</option>
         </select>
-        <select id="filterLocale">
+        <label style="font-size:11px;opacity:.6">Locale</label>
+        <select id="filterLocale" onchange="applyFilters()">
             <option value="">All Locales</option>
-            <option>English</option>
+            <option value="English">English</option>
         </select>
-        <select id="filterSAP">
-            <option value="">All SAPs</option>
-            <option>Surface</option>
-            <option>Windows</option>
-            <option>Office</option>
+        <label style="font-size:11px;opacity:.6">Product Family</label>
+        <select id="filterSAP" onchange="updateProductNameFilter(); applyFilters()">
+            <option value="">All Families</option>
+            <option value="MAICPP Concierge">MAICPP Concierge</option>
+            <option value="Partner Center">Partner Center</option>
         </select>
-        <button class="refresh-btn" onclick="location.reload()">⟳ Refresh</button>
+        <label style="font-size:11px;opacity:.6">Product Name</label>
+        <select id="filterProductName" onchange="updateCategoryFilter(); applyFilters()">
+            <option value="">All Products</option>
+        </select>
+        <label style="font-size:11px;opacity:.6">Category</label>
+        <select id="filterCategory" onchange="applyFilters()">
+            <option value="">All Categories</option>
+        </select>
+        <button class="refresh-btn" onclick="resetFilters()">⟳ Reset</button>
     </div>
 </div>
 
@@ -221,6 +234,7 @@
     <div class="tab" data-tab="cases">Case-Level Detail</div>
     <div class="tab" data-tab="evals">Agent Evals</div>
 </div>
+<div id="filterIndicator" style="display:none;padding:8px 16px;background:#dbeafe;color:#1e40af;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:16px"></div>
 
 <!-- ═══════════════════ TAB 1 — OVERVIEW ═══════════════════ -->
 <div class="tab-content active" id="tab-overview">
@@ -305,7 +319,8 @@
             <thead>
                 <tr>
                     <th>Case ID</th>
-                    <th>SAP</th>
+                    <th>Product Family</th>
+                    <th>Product Name</th>
                     <th>Sev</th>
                     <th>Current Stage</th>
                     <th>Agent Status</th>
@@ -314,21 +329,21 @@
                 </tr>
             </thead>
             <tbody>
-                <tr onclick="openDrill(0)"><td class="cid-link">2512110040000910</td><td>Surface</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>6d</td><td>SE-Martinez</td></tr>
-                <tr onclick="openDrill(1)"><td class="cid-link">2603040080001247</td><td>Windows</td><td>C</td><td><span class="badge b-green">3x Closed (Auto)</span></td><td><span class="badge b-green">Closure Sent</span></td><td>9d</td><td>SE-Chen</td></tr>
-                <tr onclick="openDrill(2)"><td class="cid-link">2601220060003385</td><td>Office</td><td>B</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>4d</td><td>SE-Patel</td></tr>
-                <tr onclick="openDrill(3)"><td class="cid-link">2511280030005512</td><td>Surface</td><td>C</td><td><span class="badge b-gray">Entry Fail</span></td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>SE-Kim</td></tr>
-                <tr onclick="openDrill(4)"><td class="cid-link">2602180050007764</td><td>Windows</td><td>B</td><td><span class="badge b-amber">Opt-Out</span></td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>SE-Johnson</td></tr>
-                <tr onclick="openDrill(5)"><td class="cid-link">2603110070002198</td><td>Surface</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>7d</td><td>SE-Lee</td></tr>
-                <tr onclick="openDrill(6)"><td class="cid-link">2601050040008830</td><td>Office</td><td>C</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>5d</td><td>SE-Garcia</td></tr>
-                <tr onclick="openDrill(7)"><td class="cid-link">2603250090004456</td><td>Windows</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>3d</td><td>SE-Thompson</td></tr>
-                <tr onclick="openDrill(8)"><td class="cid-link">2603280010006673</td><td>Surface</td><td>C</td><td><span class="badge b-purple">1st FU Sent</span></td><td><span class="badge b-purple">1st FU Sent</span></td><td>1d</td><td>SE-Wilson</td></tr>
-                <tr onclick="openDrill(9)"><td class="cid-link">2602070060009941</td><td>Office</td><td>B</td><td><span class="badge b-purple">2nd FU Sent</span></td><td><span class="badge b-purple">2nd FU Sent</span></td><td>5d</td><td>SE-Brown</td></tr>
-                <tr onclick="openDrill(10)"><td class="cid-link">2603150030001582</td><td>Surface</td><td>B</td><td><span class="badge b-blue">Waiting 48h</span></td><td><span class="badge b-blue">Pending</span></td><td>0d</td><td>SE-Rivera</td></tr>
-                <tr onclick="openDrill(11)"><td class="cid-link">2601300080003709</td><td>Windows</td><td>C</td><td><span class="badge b-green">3x Closed (Auto)</span></td><td><span class="badge b-green">Closure Sent</span></td><td>11d</td><td>SE-Adams</td></tr>
-                <tr onclick="openDrill(12)"><td class="cid-link">2603190020005847</td><td>Office</td><td>B</td><td><span class="badge b-amber">72h No Response</span></td><td><span class="badge b-amber">Auto-close pending</span></td><td>8d</td><td>SE-Nguyen</td></tr>
-                <tr onclick="openDrill(13)"><td class="cid-link">2512280040007123</td><td>Surface</td><td>C</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>5d</td><td>SE-Clark</td></tr>
-                <tr onclick="openDrill(14)"><td class="cid-link">2603080070008295</td><td>Windows</td><td>B</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>3d</td><td>SE-Hernandez</td></tr>
+                <tr onclick="openDrill(0)"><td class="cid-link">2512110040000910</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>6d</td><td>SE-Martinez</td></tr>
+                <tr onclick="openDrill(1)"><td class="cid-link">2603040080001247</td><td>Partner Center</td><td>Marketplace Offers</td><td>C</td><td><span class="badge b-green">3x Closed (Auto)</span></td><td><span class="badge b-green">Closure Sent</span></td><td>9d</td><td>SE-Chen</td></tr>
+                <tr onclick="openDrill(2)"><td class="cid-link">2601220060003385</td><td>Partner Center</td><td>Earnings</td><td>B</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>4d</td><td>SE-Patel</td></tr>
+                <tr onclick="openDrill(3)"><td class="cid-link">2511280030005512</td><td>MAICPP Concierge</td><td>Concierge engagement</td><td>C</td><td><span class="badge b-gray">Entry Fail</span></td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>SE-Kim</td></tr>
+                <tr onclick="openDrill(4)"><td class="cid-link">2602180050007764</td><td>Partner Center</td><td>Benefits</td><td>B</td><td><span class="badge b-amber">Opt-Out</span></td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>SE-Johnson</td></tr>
+                <tr onclick="openDrill(5)"><td class="cid-link">2603110070002198</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>7d</td><td>SE-Lee</td></tr>
+                <tr onclick="openDrill(6)"><td class="cid-link">2601050040008830</td><td>Partner Center</td><td>Account Settings</td><td>C</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>5d</td><td>SE-Garcia</td></tr>
+                <tr onclick="openDrill(7)"><td class="cid-link">2603250090004456</td><td>Partner Center</td><td>Membership</td><td>B</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>3d</td><td>SE-Thompson</td></tr>
+                <tr onclick="openDrill(8)"><td class="cid-link">2603280010006673</td><td>MAICPP Concierge</td><td>Campaign</td><td>C</td><td><span class="badge b-purple">1st FU Sent</span></td><td><span class="badge b-purple">1st FU Sent</span></td><td>1d</td><td>SE-Wilson</td></tr>
+                <tr onclick="openDrill(9)"><td class="cid-link">2602070060009941</td><td>Partner Center</td><td>Enrollment</td><td>B</td><td><span class="badge b-purple">2nd FU Sent</span></td><td><span class="badge b-purple">2nd FU Sent</span></td><td>5d</td><td>SE-Brown</td></tr>
+                <tr onclick="openDrill(10)"><td class="cid-link">2603150030001582</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-blue">Waiting 48h</span></td><td><span class="badge b-blue">Pending</span></td><td>0d</td><td>SE-Rivera</td></tr>
+                <tr onclick="openDrill(11)"><td class="cid-link">2601300080003709</td><td>MAICPP Concierge</td><td>Concierge engagement</td><td>C</td><td><span class="badge b-green">3x Closed (Auto)</span></td><td><span class="badge b-green">Closure Sent</span></td><td>11d</td><td>SE-Adams</td></tr>
+                <tr onclick="openDrill(12)"><td class="cid-link">2603190020005847</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-amber">72h No Response</span></td><td><span class="badge b-amber">Auto-close pending</span></td><td>8d</td><td>SE-Nguyen</td></tr>
+                <tr onclick="openDrill(13)"><td class="cid-link">2512280040007123</td><td>Partner Center</td><td>Marketplace Offers</td><td>C</td><td><span class="badge b-green">Closed</span></td><td><span class="badge b-green">Closure Sent</span></td><td>5d</td><td>SE-Clark</td></tr>
+                <tr onclick="openDrill(14)"><td class="cid-link">2603080070008295</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-red">Escalated</span></td><td>3d</td><td>SE-Hernandez</td></tr>
             </tbody>
         </table>
         </div>
@@ -342,14 +357,17 @@
     <h2 id="dpTitle">Case Details</h2>
     <div class="dp-row">
         <div class="dp-col"><div class="dp-label">Case ID</div><div class="dp-val" id="dpCaseId">—</div></div>
-        <div class="dp-col"><div class="dp-label">SAP</div><div class="dp-val" id="dpSAP">—</div></div>
+        <div class="dp-col"><div class="dp-label">Product Family</div><div class="dp-val" id="dpFamily">—</div></div>
+        <div class="dp-col"><div class="dp-label">Product Name</div><div class="dp-val" id="dpProduct">—</div></div>
         <div class="dp-col"><div class="dp-label">Severity</div><div class="dp-val" id="dpSev">—</div></div>
-        <div class="dp-col"><div class="dp-label">Case Owner</div><div class="dp-val" id="dpOwner">—</div></div>
     </div>
     <div class="dp-row">
+        <div class="dp-col"><div class="dp-label">Case Owner</div><div class="dp-val" id="dpOwner">—</div></div>
         <div class="dp-col"><div class="dp-label">Entry Criteria</div><div class="dp-val" id="dpEntry">—</div></div>
         <div class="dp-col"><div class="dp-label">Opt-Out Check</div><div class="dp-val" id="dpOptOut">—</div></div>
         <div class="dp-col"><div class="dp-label">Agent Status</div><div class="dp-val" id="dpAgentStatus">—</div></div>
+    </div>
+    <div class="dp-row">
         <div class="dp-col"><div class="dp-label">CSAT Score</div><div class="dp-val" id="dpCSAT">—</div></div>
     </div>
     <h3 style="font-size:14px;font-weight:700;margin:18px 0 10px;color:var(--gray600)">Workflow Timeline</h3>
@@ -661,31 +679,32 @@
             <thead>
                 <tr>
                     <th onclick="sortTable(0)">Case ID ↕</th>
-                    <th onclick="sortTable(1)">SAP ↕</th>
-                    <th onclick="sortTable(2)">Severity ↕</th>
-                    <th onclick="sortTable(3)">Entry Check ↕</th>
-                    <th onclick="sortTable(4)">Opt-Out ↕</th>
-                    <th onclick="sortTable(5)">1st FU Sent ↕</th>
-                    <th onclick="sortTable(6)">Resp After 1st ↕</th>
-                    <th onclick="sortTable(7)">2nd FU Sent ↕</th>
-                    <th onclick="sortTable(8)">Resp After 2nd ↕</th>
-                    <th onclick="sortTable(9)">Agent Status ↕</th>
-                    <th onclick="sortTable(10)">Timeline Updated ↕</th>
-                    <th onclick="sortTable(11)">CSAT ↕</th>
-                    <th onclick="sortTable(12)">Owner ↕</th>
+                    <th onclick="sortTable(1)">Product Family ↕</th>
+                    <th onclick="sortTable(2)">Product Name ↕</th>
+                    <th onclick="sortTable(3)">Severity ↕</th>
+                    <th onclick="sortTable(4)">Entry Check ↕</th>
+                    <th onclick="sortTable(5)">Opt-Out ↕</th>
+                    <th onclick="sortTable(6)">1st FU Sent ↕</th>
+                    <th onclick="sortTable(7)">Resp After 1st ↕</th>
+                    <th onclick="sortTable(8)">2nd FU Sent ↕</th>
+                    <th onclick="sortTable(9)">Resp After 2nd ↕</th>
+                    <th onclick="sortTable(10)">Agent Status ↕</th>
+                    <th onclick="sortTable(11)">Timeline Updated ↕</th>
+                    <th onclick="sortTable(12)">CSAT ↕</th>
+                    <th onclick="sortTable(13)">Owner ↕</th>
                 </tr>
             </thead>
             <tbody>
-                <tr><td>2512110040000910</td><td>Surface</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 15</td><td><span class="badge b-green">Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>5</td><td>SE-Martinez</td></tr>
-                <tr><td>2603040080001247</td><td>Windows</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 16</td><td><span class="badge b-amber">No Response</span></td><td>Mar 18</td><td><span class="badge b-amber">No Response</span></td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Chen</td></tr>
-                <tr><td>2601220060003385</td><td>Office</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 17</td><td><span class="badge b-red">Not Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Patel</td></tr>
-                <tr><td>2511280030005512</td><td>Surface</td><td>C</td><td><span class="badge b-red">Fail</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>—</td><td>SE-Kim</td></tr>
-                <tr><td>2602180050007764</td><td>Windows</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-amber">Opt-Out</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>—</td><td>SE-Johnson</td></tr>
-                <tr><td>2603110070002198</td><td>Surface</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 19</td><td><span class="badge b-amber">No Response</span></td><td>Mar 21</td><td><span class="badge b-green">Satisfactory</span></td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>4</td><td>SE-Lee</td></tr>
-                <tr><td>2601050040008830</td><td>Office</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 20</td><td><span class="badge b-amber">No Response</span></td><td>Mar 22</td><td><span class="badge b-red">Not Satisfactory</span></td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Garcia</td></tr>
-                <tr><td>2603250090004456</td><td>Windows</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 21</td><td><span class="badge b-green">Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>3</td><td>SE-Thompson</td></tr>
-                <tr><td>2603280010006673</td><td>Surface</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 22</td><td><span class="badge b-blue">Pending</span></td><td>—</td><td>—</td><td><span class="badge b-purple">1st FU Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Wilson</td></tr>
-                <tr><td>2602070060009941</td><td>Office</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 23</td><td><span class="badge b-amber">No Response</span></td><td>Mar 25</td><td><span class="badge b-blue">Pending</span></td><td><span class="badge b-purple">2nd FU Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Brown</td></tr>
+                <tr><td>2512110040000910</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 15</td><td><span class="badge b-green">Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>5</td><td>SE-Martinez</td></tr>
+                <tr><td>2603040080001247</td><td>Partner Center</td><td>Marketplace Offers</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 16</td><td><span class="badge b-amber">No Response</span></td><td>Mar 18</td><td><span class="badge b-amber">No Response</span></td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Chen</td></tr>
+                <tr><td>2601220060003385</td><td>Partner Center</td><td>Earnings</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 17</td><td><span class="badge b-red">Not Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Patel</td></tr>
+                <tr><td>2511280030005512</td><td>MAICPP Concierge</td><td>Concierge engagement</td><td>C</td><td><span class="badge b-red">Fail</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>—</td><td>SE-Kim</td></tr>
+                <tr><td>2602180050007764</td><td>Partner Center</td><td>Benefits</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-amber">Opt-Out</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-gray">Exited</span></td><td>—</td><td>—</td><td>SE-Johnson</td></tr>
+                <tr><td>2603110070002198</td><td>Partner Center</td><td>Marketplace Offers</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 19</td><td><span class="badge b-amber">No Response</span></td><td>Mar 21</td><td><span class="badge b-green">Satisfactory</span></td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>4</td><td>SE-Lee</td></tr>
+                <tr><td>2601050040008830</td><td>Partner Center</td><td>Account Settings</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 20</td><td><span class="badge b-amber">No Response</span></td><td>Mar 22</td><td><span class="badge b-red">Not Satisfactory</span></td><td><span class="badge b-red">Escalated</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Garcia</td></tr>
+                <tr><td>2603250090004456</td><td>Partner Center</td><td>Membership</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 21</td><td><span class="badge b-green">Satisfactory</span></td><td>—</td><td>—</td><td><span class="badge b-green">Closure Sent</span></td><td><span class="badge b-green">Yes</span></td><td>3</td><td>SE-Thompson</td></tr>
+                <tr><td>2603280010006673</td><td>MAICPP Concierge</td><td>Campaign</td><td>C</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 22</td><td><span class="badge b-blue">Pending</span></td><td>—</td><td>—</td><td><span class="badge b-purple">1st FU Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Wilson</td></tr>
+                <tr><td>2602070060009941</td><td>Partner Center</td><td>Enrollment</td><td>B</td><td><span class="badge b-green">Pass</span></td><td><span class="badge b-green">Clear</span></td><td>Mar 23</td><td><span class="badge b-amber">No Response</span></td><td>Mar 25</td><td><span class="badge b-blue">Pending</span></td><td><span class="badge b-purple">2nd FU Sent</span></td><td><span class="badge b-green">Yes</span></td><td>—</td><td>SE-Brown</td></tr>
             </tbody>
         </table>
     </div>
@@ -874,7 +893,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 /* ── Drill-Down Data ── */
 const drillData = [
-    { id:'2512110040000910', sap:'Surface', sev:'B', owner:'SE-Martinez', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'5',
+    { id:'2512110040000910', family:'Partner Center', product:'Marketplace Offers', sev:'B', owner:'SE-Martinez', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'5',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 15 09:12'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 15 09:12'},
@@ -885,7 +904,7 @@ const drillData = [
         {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Mar 18 14:34'},
         {s:'done', t:'CSAT survey sent — Score: 5', ts:'Mar 21 10:00'},
       ]},
-    { id:'2603040080001247', sap:'Windows', sev:'C', owner:'SE-Chen', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'—',
+    { id:'2603040080001247', family:'Partner Center', product:'Account Settings', sev:'C', owner:'SE-Chen', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 4 11:20'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 4 11:20'},
@@ -898,7 +917,7 @@ const drillData = [
         {s:'done', t:'Closure email sent, timeline updated, CSAT survey sent', ts:'Mar 11 11:24'},
         {s:'done', t:'Case ownership remains with SE at closure', ts:'Mar 11 11:24'},
       ]},
-    { id:'2601220060003385', sap:'Office', sev:'B', owner:'SE-Patel', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
+    { id:'2601220060003385', family:'Partner Center', product:'Earnings', sev:'B', owner:'SE-Patel', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 17 08:45'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 17 08:45'},
@@ -908,20 +927,20 @@ const drillData = [
         {s:'esc', t:'Customer responded — Not Satisfactory', ts:'Mar 20 10:15'},
         {s:'esc', t:'Case status → Troubleshooting, SE notified, AI Agent status → Escalated', ts:'Mar 20 10:15'},
       ]},
-    { id:'2511280030005512', sap:'Surface', sev:'C', owner:'SE-Kim', entry:'Fail', optOut:'—', agentStatus:'Exited', csat:'—',
+    { id:'2511280030005512', family:'MAICPP Concierge', product:'Concierge engagement', sev:'C', owner:'SE-Kim', entry:'Fail', optOut:'—', agentStatus:'Exited', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Nov 28 15:30'},
         {s:'esc', t:'Entry Criteria validated — Fail (Severity D)', ts:'Nov 28 15:30'},
         {s:'esc', t:'Do not initiate — flow exited', ts:'Nov 28 15:30'},
       ]},
-    { id:'2602180050007764', sap:'Windows', sev:'B', owner:'SE-Johnson', entry:'Pass', optOut:'Opt-Out', agentStatus:'Exited', csat:'—',
+    { id:'2602180050007764', family:'Partner Center', product:'Enrollment', sev:'B', owner:'SE-Johnson', entry:'Pass', optOut:'Opt-Out', agentStatus:'Exited', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Feb 18 13:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Feb 18 13:00'},
         {s:'esc', t:'Opt-Out confirmed — Internal Title begins with "X"', ts:'Feb 18 13:01'},
         {s:'esc', t:'Do not initiate — flow exited', ts:'Feb 18 13:01'},
       ]},
-    { id:'2603110070002198', sap:'Surface', sev:'B', owner:'SE-Lee', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'4',
+    { id:'2603110070002198', family:'Partner Center', product:'Marketplace Offers', sev:'B', owner:'SE-Lee', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'4',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 11 10:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 11 10:00'},
@@ -934,7 +953,7 @@ const drillData = [
         {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Mar 16 16:21'},
         {s:'done', t:'CSAT survey sent — Score: 4', ts:'Mar 19 10:00'},
       ]},
-    { id:'2601050040008830', sap:'Office', sev:'C', owner:'SE-Garcia', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
+    { id:'2601050040008830', family:'Partner Center', product:'Membership', sev:'C', owner:'SE-Garcia', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 20 07:30'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 20 07:30'},
@@ -946,7 +965,7 @@ const drillData = [
         {s:'esc', t:'Customer responded — Not Satisfactory', ts:'Mar 25 09:45'},
         {s:'esc', t:'Case status → Troubleshooting, SE notified, AI Agent status → Escalated', ts:'Mar 25 09:45'},
       ]},
-    { id:'2603250090004456', sap:'Windows', sev:'B', owner:'SE-Thompson', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'3',
+    { id:'2603250090004456', family:'Partner Center', product:'Benefits', sev:'B', owner:'SE-Thompson', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'3',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 21 14:10'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 21 14:10'},
@@ -957,7 +976,7 @@ const drillData = [
         {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Mar 24 08:51'},
         {s:'done', t:'CSAT survey sent — Score: 3', ts:'Mar 27 09:00'},
       ]},
-    { id:'2603280010006673', sap:'Surface', sev:'C', owner:'SE-Wilson', entry:'Pass', optOut:'Clear', agentStatus:'1st FU Sent', csat:'—',
+    { id:'2603280010006673', family:'Partner Center', product:'Marketplace Offers', sev:'C', owner:'SE-Wilson', entry:'Pass', optOut:'Clear', agentStatus:'1st FU Sent', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 28 09:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 28 09:00'},
@@ -966,7 +985,7 @@ const drillData = [
         {s:'active', t:'1st FU email sent, timeline updated', ts:'Mar 30 09:02'},
         {s:'', t:'Awaiting customer response...', ts:''},
       ]},
-    { id:'2602070060009941', sap:'Office', sev:'B', owner:'SE-Brown', entry:'Pass', optOut:'Clear', agentStatus:'2nd FU Sent', csat:'—',
+    { id:'2602070060009941', family:'Partner Center', product:'Earnings', sev:'B', owner:'SE-Brown', entry:'Pass', optOut:'Clear', agentStatus:'2nd FU Sent', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 23 11:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 23 11:00'},
@@ -977,7 +996,7 @@ const drillData = [
         {s:'active', t:'2nd FU email sent, timeline updated', ts:'Mar 27 11:03'},
         {s:'', t:'Awaiting customer response...', ts:''},
       ]},
-    { id:'2603150030001582', sap:'Surface', sev:'B', owner:'SE-Rivera', entry:'Pass', optOut:'Clear', agentStatus:'Pending', csat:'—',
+    { id:'2603150030001582', family:'MAICPP Concierge', product:'Campaign', sev:'B', owner:'SE-Rivera', entry:'Pass', optOut:'Clear', agentStatus:'Pending', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 31 08:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 31 08:00'},
@@ -985,7 +1004,7 @@ const drillData = [
         {s:'active', t:'48h timer started, ownership remains with case owner', ts:'Mar 31 08:01'},
         {s:'', t:'Awaiting 48h window...', ts:''},
       ]},
-    { id:'2601300080003709', sap:'Windows', sev:'C', owner:'SE-Adams', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'—',
+    { id:'2601300080003709', family:'Partner Center', product:'Account Settings', sev:'C', owner:'SE-Adams', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Jan 30 10:30'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Jan 30 10:30'},
@@ -998,7 +1017,7 @@ const drillData = [
         {s:'done', t:'Closure email sent, timeline updated, CSAT survey sent', ts:'Feb 6 10:34'},
         {s:'done', t:'Case ownership remains with SE at closure', ts:'Feb 6 10:34'},
       ]},
-    { id:'2603190020005847', sap:'Office', sev:'B', owner:'SE-Nguyen', entry:'Pass', optOut:'Clear', agentStatus:'Auto-close pending', csat:'—',
+    { id:'2603190020005847', family:'Partner Center', product:'Marketplace Offers', sev:'B', owner:'SE-Nguyen', entry:'Pass', optOut:'Clear', agentStatus:'Auto-close pending', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 19 09:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 19 09:00'},
@@ -1010,7 +1029,7 @@ const drillData = [
         {s:'active', t:'No customer response — 72h window active', ts:'Mar 26 09:03'},
         {s:'', t:'Auto-close pending...', ts:''},
       ]},
-    { id:'2512280040007123', sap:'Surface', sev:'C', owner:'SE-Clark', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'4',
+    { id:'2512280040007123', family:'Partner Center', product:'Marketplace Offers', sev:'C', owner:'SE-Clark', entry:'Pass', optOut:'Clear', agentStatus:'Closure Sent', csat:'4',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Dec 28 12:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Dec 28 12:00'},
@@ -1021,7 +1040,7 @@ const drillData = [
         {s:'done', t:'Closure email sent, close case verbiage applied', ts:'Dec 31 15:41'},
         {s:'done', t:'CSAT survey sent — Score: 4', ts:'Jan 3 10:00'},
       ]},
-    { id:'2603080070008295', sap:'Windows', sev:'B', owner:'SE-Hernandez', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
+    { id:'2603080070008295', family:'Partner Center', product:'Enrollment', sev:'B', owner:'SE-Hernandez', entry:'Pass', optOut:'Clear', agentStatus:'Escalated', csat:'—',
       timeline:[
         {s:'done', t:'SE set status → Waiting for Customer Confirmation', ts:'Mar 8 14:00'},
         {s:'done', t:'Entry Criteria validated — Pass', ts:'Mar 8 14:00'},
@@ -1036,7 +1055,8 @@ const drillData = [
 function openDrill(idx) {
     const c = drillData[idx];
     document.getElementById('dpCaseId').textContent = c.id;
-    document.getElementById('dpSAP').textContent = c.sap;
+    document.getElementById('dpFamily').textContent = c.family;
+    document.getElementById('dpProduct').textContent = c.product;
     document.getElementById('dpSev').textContent = 'Sev ' + c.sev;
     document.getElementById('dpOwner').textContent = c.owner;
     document.getElementById('dpEntry').innerHTML = c.entry === 'Pass' ? '<span class="badge b-green">Pass</span>' : '<span class="badge b-red">Fail</span>';
@@ -1227,6 +1247,116 @@ function filterTable() {
     const rows = document.querySelectorAll('#caseTable tbody tr');
     rows.forEach(r => { r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'; });
 }
+
+/* ── Global Filters (Header Dropdowns) ── */
+var sapData = {
+    'MAICPP Concierge': {
+        'Concierge engagement': ['Concierge engagement', 'Concierge Field led engagement'],
+        'Campaign': ['Proactive campaign']
+    },
+    'Partner Center': {
+        'Marketplace Offers': ['Deployment','Contractual or Legal questions','Availability','Automated validation phase','General Marketplace Help and How-to questions','Lead management configuration','Marketplace Publishing API','Metered Billing','Microsoft 365 App Compliance program','Offer Creation','Offer Customer Usage Attribution','Offer Delisting, Removal, or Termination','Offer Listing issues (Uploading Documents, Logos, Videos)','Offer Technical Configuration','Offer certification report failure','Offer preview','Private Offers','Offer pricing and availability','Private Plan configuration','Apps and agents for Microsoft 365 and Copilot offer certification'],
+        'Earnings': ['Earnings (Marketplace offers)'],
+        'Membership': ['ISV success'],
+        'Marketplace offers': ['Apps and agents for Microsoft 365 and Copilot offer certification'],
+        'Benefits': ['Benefits General'],
+        'Account Settings': ['Account Status'],
+        'Enrollment': ['Enroll']
+    }
+};
+
+function updateProductNameFilter() {
+    var family = document.getElementById('filterSAP').value;
+    var sel = document.getElementById('filterProductName');
+    sel.innerHTML = '<option value="">All Products</option>';
+    if (family && sapData[family]) {
+        var products = Object.keys(sapData[family]);
+        for (var i = 0; i < products.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = products[i];
+            opt.textContent = products[i];
+            sel.appendChild(opt);
+        }
+    }
+    updateCategoryFilter();
+}
+
+function updateCategoryFilter() {
+    var family = document.getElementById('filterSAP').value;
+    var product = document.getElementById('filterProductName').value;
+    var sel = document.getElementById('filterCategory');
+    sel.innerHTML = '<option value="">All Categories</option>';
+    if (family && product && sapData[family] && sapData[family][product]) {
+        var cats = sapData[family][product];
+        for (var i = 0; i < cats.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = cats[i];
+            opt.textContent = cats[i];
+            sel.appendChild(opt);
+        }
+    }
+}
+
+function applyFilters() {
+    var sev = document.getElementById('filterSeverity').value;
+    var family = document.getElementById('filterSAP').value;
+    var product = document.getElementById('filterProductName').value;
+
+    // Filter overview drill-down table (Tab 1) — col 1 = Product Family, col 2 = Product Name, col 3 = Sev
+    var overviewRows = document.querySelectorAll('#overviewCaseTable tbody tr');
+    for (var i = 0; i < overviewRows.length; i++) {
+        var r = overviewRows[i];
+        var cells = r.getElementsByTagName('td');
+        if (cells.length < 4) continue;
+        var rowFamily = cells[1].innerText.trim();
+        var rowProduct = cells[2].innerText.trim();
+        var rowSev = cells[3].innerText.trim();
+        var show = true;
+        if (sev && rowSev !== sev) show = false;
+        if (family && rowFamily !== family) show = false;
+        if (product && rowProduct !== product) show = false;
+        r.style.display = show ? '' : 'none';
+    }
+
+    // Filter case-level detail table (Tab 6) — col 1 = Product Family, col 2 = Product Name, col 3 = Sev
+    var caseRows = document.querySelectorAll('#caseTable tbody tr');
+    for (var j = 0; j < caseRows.length; j++) {
+        var r2 = caseRows[j];
+        var cells2 = r2.getElementsByTagName('td');
+        if (cells2.length < 4) continue;
+        var rowFamily2 = cells2[1].innerText.trim();
+        var rowProduct2 = cells2[2].innerText.trim();
+        var rowSev2 = cells2[3].innerText.trim();
+        var show2 = true;
+        if (sev && rowSev2 !== sev) show2 = false;
+        if (family && rowFamily2 !== family) show2 = false;
+        if (product && rowProduct2 !== product) show2 = false;
+        r2.style.display = show2 ? '' : 'none';
+    }
+
+    // Update filter indicator
+    var active = [];
+    if (family) active.push(family);
+    if (product) active.push(product);
+    if (sev) active.push('Sev ' + sev);
+    var indicator = document.getElementById('filterIndicator');
+    if (indicator) {
+        indicator.style.display = active.length ? 'block' : 'none';
+        indicator.innerText = 'Active filters: ' + (active.length ? active.join(' → ') : 'None');
+    }
+}
+
+function resetFilters() {
+    document.getElementById('filterSeverity').value = '';
+    document.getElementById('filterSAP').value = '';
+    document.getElementById('filterLocale').value = '';
+    document.getElementById('filterPeriod').selectedIndex = 1;
+    updateProductNameFilter();
+    applyFilters();
+}
 </script>
+<footer style="text-align:center;padding:18px 0;font-size:12px;color:#9ca3af;border-top:1px solid #e5e7eb;margin-top:12px;">
+    Built by Angelica Salazar with Copilot as a prototype
+</footer>
 </body>
 </html>
