@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surface - Service Order Monitoring (Prototype)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1b2a4a 0%, #2c3e6b 100%);
+            color: white; padding: 20px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header .subtitle { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+        .header .refresh { font-size: 12px; background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 4px; }
+
+        /* Layout */
+        .dashboard { display: grid; grid-template-columns: 260px 1fr; gap: 0; min-height: calc(100vh - 70px); }
+
+        /* Sidebar Filters */
+        .sidebar {
+            background: #fff; border-right: 1px solid #e0e0e0; padding: 20px;
+            overflow-y: auto; max-height: calc(100vh - 70px);
+        }
+        .filter-section { margin-bottom: 20px; }
+        .filter-section h3 { font-size: 13px; text-transform: uppercase; color: #666; margin-bottom: 8px; letter-spacing: 0.5px; }
+        .filter-section input[type="text"] {
+            width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;
+        }
+        .filter-section select {
+            width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff;
+        }
+        .case-list { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
+        .case-item {
+            padding: 8px 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f5f5f5;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .case-item:hover { background: #f0f4ff; }
+        .case-item.selected { background: #e3ecff; font-weight: 600; }
+        .case-item .status-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .dot-success { background: #22c55e; }
+        .dot-fail { background: #ef4444; }
+        .dot-pending { background: #f59e0b; }
+
+        /* Main Content */
+        .main { padding: 24px; overflow-y: auto; max-height: calc(100vh - 70px); }
+
+        /* KPI Cards Row */
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .kpi-card {
+            background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            text-align: center; position: relative; overflow: hidden;
+        }
+        .kpi-card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-card .value { font-size: 36px; font-weight: 700; margin: 8px 0; }
+        .kpi-card .sub { font-size: 12px; color: #999; }
+        .kpi-card .accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+        .accent-blue .accent-bar { background: #3b82f6; }
+        .accent-green .accent-bar { background: #22c55e; }
+        .accent-purple .accent-bar { background: #8b5cf6; }
+        .accent-orange .accent-bar { background: #f59e0b; }
+        .kpi-card .value.green { color: #22c55e; }
+        .kpi-card .value.red { color: #ef4444; }
+        .kpi-card .value.amber { color: #f59e0b; }
+
+        /* Trigger Success Cards */
+        .trigger-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .trigger-card {
+            background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            cursor: pointer; transition: all 0.2s; border: 2px solid transparent;
+        }
+        .trigger-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .trigger-card.active { border-color: #3b82f6; }
+        .trigger-card h3 { font-size: 14px; color: #555; margin-bottom: 12px; }
+        .trigger-card .rate { font-size: 32px; font-weight: 700; }
+        .trigger-card .bar-bg {
+            height: 8px; background: #f0f0f0; border-radius: 4px; margin-top: 12px; overflow: hidden;
+        }
+        .trigger-card .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .bar-green { background: #22c55e; }
+        .bar-amber { background: #f59e0b; }
+        .bar-red { background: #ef4444; }
+        .trigger-card .counts { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #999; }
+
+        /* Section Header */
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px;
+        }
+        .section-header h2 { font-size: 16px; font-weight: 600; }
+        .section-header .badge {
+            background: #e3ecff; color: #3b82f6; padding: 4px 12px; border-radius: 12px; font-size: 12px;
+        }
+
+        /* Data Table */
+        .table-container {
+            background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            overflow: hidden; margin-bottom: 24px;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: #f8f9fb; padding: 12px 16px; text-align: left; font-size: 12px;
+            text-transform: uppercase; color: #888; letter-spacing: 0.5px; border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        th:hover { background: #eef1f6; }
+        td { padding: 12px 16px; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+        tr:hover { background: #f8faff; }
+        tr.clickable { cursor: pointer; }
+        .status-badge {
+            padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+        }
+        .status-success { background: #dcfce7; color: #166534; }
+        .status-fail { background: #fee2e2; color: #991b1b; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+
+        /* Drill-down Panel */
+        .drill-panel {
+            background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            padding: 24px; margin-bottom: 24px; display: none;
+        }
+        .drill-panel.visible { display: block; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .drill-panel .close-btn {
+            float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: #999;
+        }
+        .drill-panel h2 { font-size: 16px; margin-bottom: 16px; }
+        .drill-timeline { position: relative; padding-left: 30px; }
+        .drill-timeline::before {
+            content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: #e0e0e0;
+        }
+        .timeline-step {
+            position: relative; margin-bottom: 20px; padding: 12px 16px;
+            background: #f8f9fb; border-radius: 8px;
+        }
+        .timeline-step::before {
+            content: ''; position: absolute; left: -24px; top: 16px;
+            width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;
+        }
+        .timeline-step.done::before { background: #22c55e; }
+        .timeline-step.fail::before { background: #ef4444; }
+        .timeline-step.pending::before { background: #f59e0b; }
+        .timeline-step .step-title { font-weight: 600; font-size: 13px; }
+        .timeline-step .step-detail { font-size: 12px; color: #888; margin-top: 4px; }
+
+        /* Flow diagram (simplified) */
+        .flow-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-bottom: 24px; align-items: center; }
+        .flow-node {
+            text-align: center; padding: 16px; background: #fff; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin: 0 8px; position: relative;
+        }
+        .flow-arrow {
+            text-align: center; font-size: 24px; color: #ccc;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .trigger-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>📊 Surface - Service Order Monitoring</h1>
+        <div class="subtitle">Agent Performance & Case Drill-Down Prototype</div>
+    </div>
+    <div class="refresh">Last Refresh: 03/27/2026</div>
+</div>
+
+<div class="dashboard">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="filter-section">
+            <h3>📅 Date Range</h3>
+            <input type="date" id="dateFrom" value="2025-12-01" style="margin-bottom:6px;">
+            <input type="date" id="dateTo" value="2026-03-23">
+        </div>
+
+        <div class="filter-section">
+            <h3>🔍 Search Case</h3>
+            <input type="text" id="caseSearch" placeholder="Search case number..." oninput="filterCases()">
+        </div>
+
+        <div class="filter-section">
+            <h3>📋 Case Numbers</h3>
+            <div class="case-list" id="caseList"></div>
+        </div>
+
+        <div class="filter-section">
+            <h3>⚙️ Automation Mode</h3>
+            <select id="autoMode" onchange="applyFilters()">
+                <option value="all">All</option>
+                <option value="Full Mode">Full Mode</option>
+                <option value="Shadow">Shadow</option>
+            </select>
+        </div>
+
+        <div class="filter-section">
+            <h3>📌 Trigger Event</h3>
+            <select id="triggerFilter" onchange="applyFilters()">
+                <option value="all">All</option>
+                <option value="NT_RELEASED">NT_RELEASED</option>
+                <option value="NT_COMPLETE">NT_COMPLETE</option>
+                <option value="NT_AUTOCOMPLETE">NT_AUTOCOMPLETE</option>
+            </select>
+        </div>
+
+        <div class="filter-section">
+            <h3>✅ Status</h3>
+            <select id="statusFilter" onchange="applyFilters()">
+                <option value="all">All</option>
+                <option value="Success">Success</option>
+                <option value="Failed">Failed</option>
+                <option value="Pending">Pending</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+
+        <!-- KPI Cards -->
+        <div class="kpi-row" id="kpiRow">
+            <div class="kpi-card accent-blue">
+                <div class="accent-bar"></div>
+                <div class="label">Total Cases</div>
+                <div class="value" id="kpiTotal">—</div>
+                <div class="sub">in selected period</div>
+            </div>
+            <div class="kpi-card accent-green">
+                <div class="accent-bar"></div>
+                <div class="label">Overall Success Rate</div>
+                <div class="value green" id="kpiSuccess">—</div>
+                <div class="sub" id="kpiSuccessSub"></div>
+            </div>
+            <div class="kpi-card accent-purple">
+                <div class="accent-bar"></div>
+                <div class="label">Cases Resolved</div>
+                <div class="value" id="kpiResolved">—</div>
+                <div class="sub" id="kpiResolvedSub"></div>
+            </div>
+            <div class="kpi-card accent-orange">
+                <div class="accent-bar"></div>
+                <div class="label">Avg Resolution Time</div>
+                <div class="value" id="kpiAvgTime">—</div>
+                <div class="sub">hours</div>
+            </div>
+        </div>
+
+        <!-- Trigger Event Success Rates -->
+        <div class="section-header">
+            <h2>⚡ Success Rate by Trigger Event</h2>
+            <div class="badge">Click to filter</div>
+        </div>
+        <div class="trigger-row" id="triggerRow"></div>
+
+        <!-- Drill-Down Panel -->
+        <div class="drill-panel" id="drillPanel">
+            <button class="close-btn" onclick="closeDrill()">✕</button>
+            <h2 id="drillTitle">Case Details</h2>
+            <div class="drill-timeline" id="drillTimeline"></div>
+        </div>
+
+        <!-- Case Table -->
+        <div class="section-header">
+            <h2>📋 Case Details</h2>
+            <div class="badge" id="tableCount">0 cases</div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('caseNumber')">Case Number ↕</th>
+                        <th onclick="sortTable('trigger')">Trigger Event ↕</th>
+                        <th onclick="sortTable('automationMode')">Mode ↕</th>
+                        <th>Case Found</th>
+                        <th>Trigger Status</th>
+                        <th>Email Created</th>
+                        <th>Case Resolved</th>
+                        <th onclick="sortTable('overallStatus')">Overall ↕</th>
+                        <th>Time (hrs)</th>
+                    </tr>
+                </thead>
+                <tbody id="caseTableBody"></tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ============================================================
+// SAMPLE DATA — replace with your real data source
+// ============================================================
+const sampleCases = [
+    { caseNumber: "2405140050003516", trigger: "NT_RELEASED", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2025-12-05 08:12", triggerStatus: "Success", triggerTime: "2025-12-05 08:14", emailCreated: true, emailTime: "2025-12-05 08:15", caseResolved: true, resolvedTime: "2025-12-05 09:30", overallStatus: "Success", resolutionHrs: 1.3 },
+    { caseNumber: "2411220040008895", trigger: "NT_COMPLETE", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2025-12-10 14:22", triggerStatus: "Success", triggerTime: "2025-12-10 14:24", emailCreated: true, emailTime: "2025-12-10 14:25", caseResolved: true, resolvedTime: "2025-12-10 15:10", overallStatus: "Success", resolutionHrs: 0.8 },
+    { caseNumber: "2411280030001438", trigger: "NT_AUTOCOMPLETE", automationMode: "Shadow", caseFound: true, caseFoundTime: "2025-12-15 09:05", triggerStatus: "Success", triggerTime: "2025-12-15 09:08", emailCreated: true, emailTime: "2025-12-15 09:09", caseResolved: true, resolvedTime: "2025-12-15 10:45", overallStatus: "Success", resolutionHrs: 1.7 },
+    { caseNumber: "2412030040011513", trigger: "NT_RELEASED", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2025-12-20 11:30", triggerStatus: "Success", triggerTime: "2025-12-20 11:33", emailCreated: false, emailTime: null, caseResolved: false, resolvedTime: null, overallStatus: "Failed", resolutionHrs: null },
+    { caseNumber: "2504080040009683", trigger: "NT_COMPLETE", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-01-08 16:40", triggerStatus: "Success", triggerTime: "2026-01-08 16:42", emailCreated: true, emailTime: "2026-01-08 16:43", caseResolved: true, resolvedTime: "2026-01-08 17:55", overallStatus: "Success", resolutionHrs: 1.2 },
+    { caseNumber: "2504210060004032", trigger: "NT_RELEASED", automationMode: "Shadow", caseFound: true, caseFoundTime: "2026-01-21 10:10", triggerStatus: "Failed", triggerTime: null, emailCreated: false, emailTime: null, caseResolved: false, resolvedTime: null, overallStatus: "Failed", resolutionHrs: null },
+    { caseNumber: "2504300030005910", trigger: "NT_AUTOCOMPLETE", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-01-30 07:55", triggerStatus: "Success", triggerTime: "2026-01-30 07:58", emailCreated: true, emailTime: "2026-01-30 07:59", caseResolved: true, resolvedTime: "2026-01-30 08:20", overallStatus: "Success", resolutionHrs: 0.4 },
+    { caseNumber: "2505200030005585", trigger: "NT_COMPLETE", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-02-20 13:15", triggerStatus: "Success", triggerTime: "2026-02-20 13:18", emailCreated: true, emailTime: "2026-02-20 13:19", caseResolved: false, resolvedTime: null, overallStatus: "Pending", resolutionHrs: null },
+    { caseNumber: "2506230030009671", trigger: "NT_RELEASED", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-02-23 15:00", triggerStatus: "Success", triggerTime: "2026-02-23 15:03", emailCreated: true, emailTime: "2026-02-23 15:04", caseResolved: true, resolvedTime: "2026-02-23 16:30", overallStatus: "Success", resolutionHrs: 1.5 },
+    { caseNumber: "2507110050002463", trigger: "NT_AUTOCOMPLETE", automationMode: "Shadow", caseFound: true, caseFoundTime: "2026-03-11 09:45", triggerStatus: "Success", triggerTime: "2026-03-11 09:48", emailCreated: true, emailTime: "2026-03-11 09:49", caseResolved: true, resolvedTime: "2026-03-11 11:00", overallStatus: "Success", resolutionHrs: 1.3 },
+    { caseNumber: "2507210040012423", trigger: "NT_COMPLETE", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-03-15 08:30", triggerStatus: "Success", triggerTime: "2026-03-15 08:33", emailCreated: true, emailTime: "2026-03-15 08:34", caseResolved: true, resolvedTime: "2026-03-15 09:15", overallStatus: "Success", resolutionHrs: 0.75 },
+    { caseNumber: "2508010050003344", trigger: "NT_RELEASED", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-03-18 11:20", triggerStatus: "Success", triggerTime: "2026-03-18 11:22", emailCreated: true, emailTime: "2026-03-18 11:23", caseResolved: true, resolvedTime: "2026-03-18 12:40", overallStatus: "Success", resolutionHrs: 1.3 },
+    { caseNumber: "2508050030007821", trigger: "NT_AUTOCOMPLETE", automationMode: "Full Mode", caseFound: true, caseFoundTime: "2026-03-20 14:10", triggerStatus: "Failed", triggerTime: null, emailCreated: false, emailTime: null, caseResolved: false, resolvedTime: null, overallStatus: "Failed", resolutionHrs: null },
+    { caseNumber: "2508120040006590", trigger: "NT_COMPLETE", automationMode: "Shadow", caseFound: true, caseFoundTime: "2026-03-22 10:05", triggerStatus: "Success", triggerTime: "2026-03-22 10:08", emailCreated: true, emailTime: "2026-03-22 10:09", caseResolved: true, resolvedTime: "2026-03-22 11:30", overallStatus: "Success", resolutionHrs: 1.4 },
+];
+
+let filteredCases = [...sampleCases];
+let selectedCase = null;
+let sortField = null;
+let sortAsc = true;
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+    applyFilters();
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+function applyFilters() {
+    const mode = document.getElementById('autoMode').value;
+    const trigger = document.getElementById('triggerFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const search = document.getElementById('caseSearch').value.toLowerCase();
+
+    filteredCases = sampleCases.filter(c => {
+        if (mode !== 'all' && c.automationMode !== mode) return false;
+        if (trigger !== 'all' && c.trigger !== trigger) return false;
+        if (status !== 'all' && c.overallStatus !== status) return false;
+        if (search && !c.caseNumber.includes(search)) return false;
+        return true;
+    });
+
+    if (sortField) sortData();
+    renderAll();
+}
+
+function filterCases() { applyFilters(); }
+
+// ============================================================
+// RENDERING
+// ============================================================
+function renderAll() {
+    renderKPIs();
+    renderTriggerCards();
+    renderCaseList();
+    renderTable();
+}
+
+function renderKPIs() {
+    const total = filteredCases.length;
+    const success = filteredCases.filter(c => c.overallStatus === 'Success').length;
+    const resolved = filteredCases.filter(c => c.caseResolved).length;
+    const times = filteredCases.filter(c => c.resolutionHrs).map(c => c.resolutionHrs);
+    const avgTime = times.length ? (times.reduce((a,b) => a+b, 0) / times.length).toFixed(1) : '—';
+    const rate = total ? Math.round((success / total) * 100) : 0;
+
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiSuccess').textContent = rate + '%';
+    document.getElementById('kpiSuccess').className = 'value ' + (rate >= 80 ? 'green' : rate >= 60 ? 'amber' : 'red');
+    document.getElementById('kpiSuccessSub').textContent = `${success} of ${total} cases`;
+    document.getElementById('kpiResolved').textContent = resolved;
+    document.getElementById('kpiResolvedSub').textContent = `of ${total} total`;
+    document.getElementById('kpiAvgTime').textContent = avgTime;
+}
+
+function renderTriggerCards() {
+    const triggers = ['NT_RELEASED', 'NT_COMPLETE', 'NT_AUTOCOMPLETE'];
+    const colors = { NT_RELEASED: '#3b82f6', NT_COMPLETE: '#8b5cf6', NT_AUTOCOMPLETE: '#f59e0b' };
+    const icons = { NT_RELEASED: '🚀', NT_COMPLETE: '✅', NT_AUTOCOMPLETE: '⚡' };
+
+    const row = document.getElementById('triggerRow');
+    row.innerHTML = '';
+
+    triggers.forEach(t => {
+        const cases = filteredCases.filter(c => c.trigger === t);
+        const total = cases.length;
+        const success = cases.filter(c => c.overallStatus === 'Success').length;
+        const failed = cases.filter(c => c.overallStatus === 'Failed').length;
+        const pending = cases.filter(c => c.overallStatus === 'Pending').length;
+        const rate = total ? Math.round((success / total) * 100) : 0;
+        const barClass = rate >= 80 ? 'bar-green' : rate >= 60 ? 'bar-amber' : 'bar-red';
+        const rateClass = rate >= 80 ? 'green' : rate >= 60 ? 'amber' : 'red';
+
+        const card = document.createElement('div');
+        card.className = 'trigger-card';
+        card.onclick = () => {
+            document.getElementById('triggerFilter').value = t;
+            applyFilters();
+        };
+        card.innerHTML = `
+            <h3>${icons[t]} ${t}</h3>
+            <div class="rate ${rateClass}">${rate}%</div>
+            <div class="bar-bg"><div class="bar-fill ${barClass}" style="width:${rate}%"></div></div>
+            <div class="counts">
+                <span>✅ ${success} success</span>
+                <span>❌ ${failed} failed</span>
+                <span>⏳ ${pending} pending</span>
+            </div>
+        `;
+        row.appendChild(card);
+    });
+}
+
+function renderCaseList() {
+    const list = document.getElementById('caseList');
+    list.innerHTML = '';
+    filteredCases.forEach(c => {
+        const dotClass = c.overallStatus === 'Success' ? 'dot-success' : c.overallStatus === 'Failed' ? 'dot-fail' : 'dot-pending';
+        const item = document.createElement('div');
+        item.className = 'case-item' + (selectedCase === c.caseNumber ? ' selected' : '');
+        item.innerHTML = `<div class="status-dot ${dotClass}"></div>${c.caseNumber}`;
+        item.onclick = () => openDrill(c.caseNumber);
+        list.appendChild(item);
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('caseTableBody');
+    tbody.innerHTML = '';
+    document.getElementById('tableCount').textContent = filteredCases.length + ' cases';
+
+    filteredCases.forEach(c => {
+        const statusClass = c.overallStatus === 'Success' ? 'status-success' : c.overallStatus === 'Failed' ? 'status-fail' : 'status-pending';
+        const triggerBadge = c.triggerStatus === 'Success' ? 'status-success' : 'status-fail';
+        const tr = document.createElement('tr');
+        tr.className = 'clickable';
+        tr.onclick = () => openDrill(c.caseNumber);
+        tr.innerHTML = `
+            <td><strong>${c.caseNumber}</strong></td>
+            <td>${c.trigger}</td>
+            <td>${c.automationMode}</td>
+            <td>${c.caseFound ? '✅' : '❌'}</td>
+            <td><span class="status-badge ${triggerBadge}">${c.triggerStatus}</span></td>
+            <td>${c.emailCreated ? '✅' : '❌'}</td>
+            <td>${c.caseResolved ? '✅' : c.overallStatus === 'Pending' ? '⏳' : '❌'}</td>
+            <td><span class="status-badge ${statusClass}">${c.overallStatus}</span></td>
+            <td>${c.resolutionHrs ?? '—'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// ============================================================
+// DRILL-DOWN
+// ============================================================
+function openDrill(caseNumber) {
+    selectedCase = caseNumber;
+    const c = sampleCases.find(x => x.caseNumber === caseNumber);
+    if (!c) return;
+
+    const panel = document.getElementById('drillPanel');
+    panel.classList.add('visible');
+    document.getElementById('drillTitle').textContent = `🔍 Case ${c.caseNumber} — ${c.trigger} (${c.automationMode})`;
+
+    const steps = [
+        { title: 'Case Number Found', status: c.caseFound ? 'done' : 'fail', detail: c.caseFoundTime ? `Found at ${c.caseFoundTime}` : 'Not found' },
+        { title: `Trigger: ${c.trigger}`, status: c.triggerStatus === 'Success' ? 'done' : 'fail', detail: c.triggerTime ? `Triggered at ${c.triggerTime}` : 'Trigger failed — no timestamp recorded' },
+        { title: 'Email Created', status: c.emailCreated ? 'done' : (c.triggerStatus === 'Failed' ? 'fail' : 'pending'), detail: c.emailTime ? `Email sent at ${c.emailTime}` : (c.triggerStatus === 'Failed' ? 'Skipped — trigger failed' : 'Email not created') },
+        { title: 'Case Resolved', status: c.caseResolved ? 'done' : (c.overallStatus === 'Pending' ? 'pending' : 'fail'), detail: c.resolvedTime ? `Resolved at ${c.resolvedTime} (${c.resolutionHrs} hrs)` : (c.overallStatus === 'Pending' ? 'Awaiting resolution' : 'Not resolved') },
+    ];
+
+    const timeline = document.getElementById('drillTimeline');
+    timeline.innerHTML = '';
+    steps.forEach(s => {
+        const div = document.createElement('div');
+        div.className = `timeline-step ${s.status}`;
+        div.innerHTML = `<div class="step-title">${s.status === 'done' ? '✅' : s.status === 'fail' ? '❌' : '⏳'} ${s.title}</div><div class="step-detail">${s.detail}</div>`;
+        timeline.appendChild(div);
+    });
+
+    renderCaseList(); // highlight selected
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeDrill() {
+    selectedCase = null;
+    document.getElementById('drillPanel').classList.remove('visible');
+    renderCaseList();
+}
+
+// ============================================================
+// SORTING
+// ============================================================
+function sortTable(field) {
+    if (sortField === field) { sortAsc = !sortAsc; } else { sortField = field; sortAsc = true; }
+    sortData();
+    renderTable();
+}
+
+function sortData() {
+    filteredCases.sort((a, b) => {
+        let va = a[sortField] || '';
+        let vb = b[sortField] || '';
+        if (typeof va === 'string') va = va.toLowerCase();
+        if (typeof vb === 'string') vb = vb.toLowerCase();
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+    });
+}
+
+// Go!
+init();
+</script>
+
+</body>
+</html>
